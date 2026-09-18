@@ -27,12 +27,15 @@ class Settings:
     auto_max: int = field(default_factory=lambda: int(_env("OPENJEV_AUTO_MAX", "4")))
 
 
-MODEL_VERSION = "openjev-1.0.0"
-MODEL_ALIASES = {"openjev-latest", "openjev-preview", MODEL_VERSION,
+MODEL_VERSION = "openjev-0.1"
+# openjev-latest follows the newest release. openjev-0.1 runs on the unmerged vLLM PR #57250;
+# openjev-1.0 will follow once that lands upstream.
+MODEL_ALIASES = {"openjev-latest", MODEL_VERSION,
                  # accepted so TypeSafe's SDKs work unchanged (their default is jev-latest)
                  "jev-latest", "jev-preview"}
 MODELS = [
-    {"name": "openjev-latest", "description": "Latest OpenJev release. Currently openjev-1.0.0 (DiffusionGemma 26B-A4B, NVFP4).",
+    {"name": "openjev-latest", "description": "Alias for the newest OpenJev release. Currently openjev-0.1.",
      "release_date": "2026-09-18"},
-    {"name": "openjev-preview", "description": "Preview channel. Currently openjev-1.0.0.", "release_date": "2026-09-18"},
+    {"name": "openjev-0.1", "description": "OpenJev 0.1: DiffusionGemma 26B-A4B (NVFP4) on vLLM PR #57250.",
+     "release_date": "2026-09-18"},
 ]

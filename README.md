@@ -57,7 +57,7 @@ curl https://api.codiv.ai/v1/systemone \
 | | |
 |---|---|
 | `POST /v1/systemone` | `{state, model, questions}` → `{model, answers, usage}` |
-| `GET /v1/models` | `openjev-latest`, `openjev-preview`. `jev-latest` and `jev-preview` are accepted as aliases. |
+| `GET /v1/models` | `openjev-0.1` and its alias `openjev-latest`. `jev-latest` and `jev-preview` are also accepted, so TypeSafe SDK defaults work. |
 
 Question types:
 
@@ -101,10 +101,21 @@ backpressure added.
 
 You need an NVIDIA GPU with at least 24 GB of memory for the NVFP4 checkpoint (tested on an RTX PRO 6000 Blackwell, sm_120).
 
+Prebuilt images are on Docker Hub, so there is nothing to compile:
+
+| Image | Contents |
+|---|---|
+| [`razorback16/openjev`](https://hub.docker.com/r/razorback16/openjev) | The Jev-compatible API server (small) |
+| [`razorback16/openjev-vllm`](https://hub.docker.com/r/razorback16/openjev-vllm) | vLLM with PR #57250 at `d2c2b54`, CUDA 13 (large) |
+
 ```bash
-docker compose up -d          # vLLM (PR #57250 build) + OpenJev on 127.0.0.1:8080
+git clone https://github.com/razorback16/openjev && cd openjev
+docker compose up -d          # pulls both images; OpenJev on 127.0.0.1:8080
 curl localhost:8080/v1/models
 ```
+
+The model weights (about 18 GB) download on first start into `~/.cache/huggingface`.
+Use `docker compose build` to build the images yourself instead.
 
 Settings are read from the environment:
 

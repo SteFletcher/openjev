@@ -1,6 +1,6 @@
 [project]
 name = "openjev"
-version = "1.0.0"
+version = "0.1.0"
 description = "Open, Jev-compatible System One decision server on DiffusionGemma"
 readme = "README.md"
 license = "Apache-2.0"

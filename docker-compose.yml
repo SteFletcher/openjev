@@ -2,7 +2,7 @@
 services:
   vllm:
     build: {context: docker, dockerfile: Dockerfile.vllm}
-    image: openjev-vllm:d2c2b54
+    image: razorback16/openjev-vllm:d2c2b54
     command:
       - nvidia/diffusiongemma-26B-A4B-it-NVFP4
       - --served-model-name=dgemma
@@ -35,7 +35,7 @@ services:
 
   openjev:
     build: {context: ., dockerfile: docker/Dockerfile}
-    image: openjev:1.0.0
+    image: razorback16/openjev:0.1.0
     environment:
       OPENJEV_UPSTREAM: http://vllm:8000
       OPENJEV_CANVAS: "64"
