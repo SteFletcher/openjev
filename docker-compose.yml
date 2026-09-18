@@ -1,53 +1,27 @@
-# OpenJev: vLLM (DiffusionGemma, PR #57250) + the Jev-compatible API on :8080.
+# OpenJev: vLLM (DiffusionGemma, PR #57250) and the Jev-compatible API on :8080,
+# in one container.
 services:
-  vllm:
-    build: {context: docker, dockerfile: Dockerfile.vllm}
-    image: razorback16/openjev-vllm:d2c2b54
-    command:
-      - nvidia/diffusiongemma-26B-A4B-it-NVFP4
-      - --served-model-name=dgemma
-      - --host=0.0.0.0
-      - --port=8000
-      - '--diffusion-config={"canvas_length": 64}'
-      - --max-logprobs=32
-      - --enable-prefix-caching
-      - --async-scheduling
-      - --attention-backend=TRITON_ATTN
-      - --max-num-seqs=${OPENJEV_MAX_NUM_SEQS:-64}
-      - --max-model-len=${OPENJEV_MAX_MODEL_LEN:-65536}
-      - --gpu-memory-utilization=${OPENJEV_GPU_UTIL:-0.9}
+  openjev:
+    build: {context: ., dockerfile: docker/Dockerfile}
+    image: razorback16/openjev:0.1.0
     environment:
+      OPENJEV_CANVAS: "64"
+      OPENJEV_MAX_NUM_SEQS: ${OPENJEV_MAX_NUM_SEQS:-64}
+      OPENJEV_MAX_MODEL_LEN: ${OPENJEV_MAX_MODEL_LEN:-65536}
+      OPENJEV_GPU_UTIL: ${OPENJEV_GPU_UTIL:-0.9}
+      OPENJEV_API_KEY: ${OPENJEV_API_KEY:-}
+      OPENJEV_ORIGIN_SECRET: ${OPENJEV_ORIGIN_SECRET:-}
       HF_TOKEN: ${HF_TOKEN:-}
     volumes:
       - ${HF_HOME:-~/.cache/huggingface}:/root/.cache/huggingface
       - vllm-cache:/root/.cache/vllm
+    ports:
+      - "${OPENJEV_BIND:-127.0.0.1}:8080:8080"
     ipc: host
     deploy:
       resources:
         reservations:
           devices: [{driver: nvidia, count: all, capabilities: [gpu]}]
-    healthcheck:
-      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8000/health"]
-      interval: 15s
-      timeout: 3s
-      start_period: 600s
-    restart: unless-stopped
-
-  openjev:
-    build: {context: ., dockerfile: docker/Dockerfile}
-    image: razorback16/openjev:0.1.0
-    environment:
-      OPENJEV_UPSTREAM: http://vllm:8000
-      OPENJEV_CANVAS: "64"
-      OPENJEV_API_KEY: ${OPENJEV_API_KEY:-}
-      OPENJEV_ORIGIN_SECRET: ${OPENJEV_ORIGIN_SECRET:-}
-      HF_TOKEN: ${HF_TOKEN:-}
-    volumes:
-      - ${HF_HOME:-~/.cache/huggingface}:/root/.cache/huggingface:ro
-    ports:
-      - "${OPENJEV_BIND:-127.0.0.1}:8080:8080"
-    depends_on:
-      vllm: {condition: service_healthy}
     restart: unless-stopped
 
 volumes:

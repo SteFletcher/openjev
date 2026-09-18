@@ -101,28 +101,38 @@ backpressure added.
 
 You need an NVIDIA GPU with at least 24 GB of memory for the NVFP4 checkpoint (tested on an RTX PRO 6000 Blackwell, sm_120).
 
-Prebuilt images are on Docker Hub, so there is nothing to compile:
-
-| Image | Contents |
-|---|---|
-| [`razorback16/openjev`](https://hub.docker.com/r/razorback16/openjev) | The Jev-compatible API server (small) |
-| [`razorback16/openjev-vllm`](https://hub.docker.com/r/razorback16/openjev-vllm) | vLLM with PR #57250 at `d2c2b54`, CUDA 13 (large) |
+A prebuilt image is on Docker Hub, so there is nothing to compile.
+[`razorback16/openjev`](https://hub.docker.com/r/razorback16/openjev) runs vLLM with PR #57250
+(at `d2c2b54`, CUDA 13) and the Jev-compatible API server in one container:
 
 ```bash
 git clone https://github.com/razorback16/openjev && cd openjev
-docker compose up -d          # pulls both images; OpenJev on 127.0.0.1:8080
+docker compose up -d          # OpenJev on 127.0.0.1:8080 once the model has loaded
 curl localhost:8080/v1/models
 ```
 
+Or without compose:
+
+```bash
+docker run -d --gpus all --ipc=host -p 127.0.0.1:8080:8080 \
+  -v ~/.cache/huggingface:/root/.cache/huggingface razorback16/openjev:0.1.0
+```
+
 The model weights (about 18 GB) download on first start into `~/.cache/huggingface`.
-Use `docker compose build` to build the images yourself instead.
+Use `docker compose build` to build the image yourself instead. vLLM listens only inside the
+container; set `OPENJEV_UPSTREAM` to skip it and use a vLLM server you already run.
 
 Settings are read from the environment:
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `OPENJEV_UPSTREAM` | `http://127.0.0.1:8000` | vLLM server URL |
-| `OPENJEV_CANVAS` | `64` | canvas length; must match vLLM's `--diffusion-config` |
+| `OPENJEV_UPSTREAM` | unset | external vLLM server URL; when set, the container does not start its own |
+| `OPENJEV_MODEL` | `nvidia/diffusiongemma-26B-A4B-it-NVFP4` | weights the built-in vLLM serves |
+| `OPENJEV_GPU_UTIL` | `0.9` | vLLM `--gpu-memory-utilization` |
+| `OPENJEV_MAX_NUM_SEQS` | `64` | vLLM `--max-num-seqs` |
+| `OPENJEV_MAX_MODEL_LEN` | `65536` | vLLM `--max-model-len` |
+| `OPENJEV_VLLM_ARGS` | unset | extra `vllm serve` flags |
+| `OPENJEV_CANVAS` | `64` | canvas length; also sets the built-in vLLM's `--diffusion-config` |
 | `OPENJEV_MAX_INFLIGHT` | `64` | reads in flight to vLLM |
 | `OPENJEV_MAX_QUEUE` | `512` | waiting decisions before the server returns 529 |
 | `OPENJEV_API_KEY` | unset | require `Authorization: Bearer <key>` |
