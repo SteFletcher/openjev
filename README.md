@@ -72,7 +72,6 @@ auth errors (`401`/`403`), `429`, and `529` when overloaded.
 
 Known differences from Jev:
 - A choice can have at most 128 options (Jev allows 255).
-- English only.
 - Many questions are answered in chunks of about 12 per read. They are still answered in parallel.
 
 ## How it works
