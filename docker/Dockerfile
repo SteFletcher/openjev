@@ -1,11 +1,14 @@
 # OpenJev in one image: vLLM with PR #57250 (DiffusionGemma structured reads)
-# plus the Jev-compatible API server. The PR only touches Python, so the
-# compiled kernels come from the upstream nightly wheel of the fork's
-# merge-base commit: no CUDA build.
+# plus the Jev-compatible API server. The pin is the PR's head plus fixes that
+# keep the engine alive: vllm-project/vllm#54309 (image input) and two sampler
+# fixes (eager fallback after torch.compile's recompile limit; logprob stashes
+# of different widths). Move back to mmastrac/vllm once the PR carries them.
+# The PR only touches Python, so the compiled kernels come from the upstream
+# nightly wheel of the fork's merge-base commit: no CUDA build.
 FROM nvidia/cuda:13.0.1-devel-ubuntu24.04
 
-ARG VLLM_REPO=https://github.com/mmastrac/vllm
-ARG VLLM_COMMIT=d2c2b5422d6e1b62fc9af68e16dc26a975d2aa23
+ARG VLLM_REPO=https://github.com/razorback16/vllm
+ARG VLLM_COMMIT=9bbf7418e85020dc76da9f60cdfe6c4e912ec048
 ARG VLLM_BASE_COMMIT=2c88fb131c7ae0be01907cd8c276911db5e7aad4
 
 ENV DEBIAN_FRONTEND=noninteractive UV_LINK_MODE=copy PATH=/opt/venv/bin:$PATH \

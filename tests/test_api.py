@@ -35,19 +35,30 @@ def tok():
 def client(tok, monkeypatch):
     reads = []
 
-    async def fake_read(self, template, slots, sys_text, state_text, seed):
+    calls = []
+
+    async def fake_read(self, template, slots, sys_text, content, seed, steps=1, prefix=None):
         reads.append(sys_text)
-        # first label 70%, the rest share 30%
+        calls.append({"content": content, "seed": seed, "steps": steps, "prefix": prefix, "template": template})
+        # first label 70%, the rest share 30%; odd seeds flip the first two
+        # labels of a noul so averaging over samples shows up
         out = []
         for s in slots:
             n = len(s["label_ids"])
             probs = [0.7] + [0.3 / (n - 1)] * (n - 1)
+            if n == 2 and seed % 2:
+                probs = [0.3, 0.7]
             out.append({"probs": probs, "entropy": 0.05})
         return out, 123
 
+    async def fake_think(self, sys_text, state_text, budget):
+        return self.chat_prompt_ids(sys_text, state_text, thinking=True) + self.thought_open + [7, 8, 9] + self.thought_close, 3, 100
+
     monkeypatch.setattr(Engine, "one_read", fake_read)
+    monkeypatch.setattr(Engine, "think", fake_think)
     with TestClient(create_app(Settings(), tokenizer=tok)) as c:
         c.reads = reads
+        c.calls = calls
         yield c
 
 
@@ -144,3 +155,127 @@ def test_indexed_format_with_mixed_types(tok):
     assert schema["format"] == "indexed"
     for g in eng.groups(schema["questions"], schema["format"]):
         eng.resolve_template(g, schema["format"])
+
+
+PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+
+
+def test_images_go_ahead_of_the_state(client):
+    body = dict(EXAMPLE, images=[f"data:image/png;base64,{PNG}", {"content_type": "image/jpeg", "base64": PNG}])
+    r = client.post("/v1/systemone", json=body)
+    assert r.status_code == 200, r.text
+    content = client.calls[0]["content"]
+    assert [p["type"] for p in content] == ["image_url", "image_url", "text"]
+    assert content[0]["image_url"]["url"].startswith("data:image/png;base64,")
+    assert content[1]["image_url"]["url"].startswith("data:image/jpeg;base64,")
+    assert content[2]["text"] == EXAMPLE["state"]
+
+
+def test_image_validation(client):
+    for images, needle in [(["https://example.com/a.png"], "data:image"),
+                           ([{"content_type": "image/bmp", "base64": PNG}], "not supported"),
+                           ([{"content_type": "image/png", "base64": "not base64!"}], "base64"),
+                           ([f"data:image/png;base64,{PNG}"] * 9, "at most 8")]:
+        r = client.post("/v1/systemone", json=dict(EXAMPLE, images=images))
+        assert r.status_code == 422 and needle in r.json()["detail"][0]["msg"], (images, r.text)
+
+
+def test_options_default_to_jevs_behaviour(client):
+    plain = client.post("/v1/systemone", json=EXAMPLE).json()
+    first = list(client.calls)
+    client.calls.clear()
+    explicit = client.post("/v1/systemone", json=dict(EXAMPLE, steps=1, think=0, sequential=False)).json()
+    assert plain == explicit
+    assert [c["steps"] for c in first] == [1] and first[0]["prefix"] is None
+    assert [(c["seed"], c["steps"]) for c in client.calls] == [(c["seed"], c["steps"]) for c in first]
+
+
+def test_steps_and_samples(client):
+    r = client.post("/v1/systemone", json=dict(EXAMPLE, steps=4, samples=4))
+    assert r.status_code == 200, r.text
+    assert len(client.calls) == 4 and all(c["steps"] == 4 for c in client.calls)
+    # two of the four seeds flip the noul, so the mean is 0.5; every read is billed
+    assert math.isclose(r.json()["answers"]["is_urgent"]["noul"], 0.5)
+    assert r.json()["usage"]["input_tokens"] == 4 * 123
+    assert client.post("/v1/systemone", json=dict(EXAMPLE, samples=33)).status_code == 422
+    assert client.post("/v1/systemone", json=dict(EXAMPLE, steps=9)).status_code == 422
+
+
+def test_think_continues_after_the_thought(client):
+    r = client.post("/v1/systemone", json=dict(EXAMPLE, think=256))
+    assert r.status_code == 200, r.text
+    call = client.calls[0]
+    close = client.app.state.engine.thought_close
+    assert call["prefix"][-len(close) - 3:] == [7, 8, 9] + close  # the read continues after the closed thought
+    assert call["template"][: len(client.app.state.engine.scaffold)] != client.app.state.engine.scaffold
+    assert r.json()["usage"]["output_tokens"] == 3  # the thought's tokens
+    # the input is billed for the thought pass and again for the read
+    assert r.json()["usage"]["input_tokens"] == 100 + 123
+
+
+def test_sequential_prefills_earlier_answers(tok, client):
+    qs = {f"k{i}": {"type": "noul", "instructions": f"question {i}"} for i in range(24)}
+    r = client.post("/v1/systemone", json={"state": "x", "model": "jev-latest", "questions": qs, "sequential": True})
+    assert r.status_code == 200, r.text
+    assert len(client.calls) > 1
+    assert client.calls[0]["prefix"] is None
+    later = client.calls[1]["prefix"]
+    assert later is not None and len(later) > len(client.calls[0]["template"])
+
+
+def test_think_and_sequential_need_text(client):
+    for opt in ({"think": 64}, {"sequential": True}):
+        r = client.post("/v1/systemone", json=dict(EXAMPLE, images=[f"data:image/png;base64,{PNG}"], **opt))
+        err = r.json()["detail"][0]
+        assert r.status_code == 422 and "text state" in err["msg"]
+        assert err["loc"] == ["body", next(iter(opt))]
+
+
+def chat_client(tok, handler, **settings):
+    import httpx
+
+    app = create_app(Settings(**settings), tokenizer=tok)
+    c = TestClient(app)
+    c.__enter__()
+    app.state.generator.client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://vllm")
+    return c
+
+
+def test_chat_normalizes_jev_ultrafast_request(tok):
+    import json as _json
+
+    sent = []
+
+    def handler(request):
+        sent.append(_json.loads(request.content))
+        return httpx_response({"id": "x", "model": "dgemma", "choices": [{"index": 0, "message": {
+            "role": "assistant", "content": 'Sure!\n```json\n{"text": "Zurich"}\n```'}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 40, "completion_tokens": 12, "total_tokens": 52}})
+
+    c = chat_client(tok, handler)
+    body = {"model": "diffusiongemma-26b", "max_tokens": 1024, "response_format": {"type": "json_object"},
+            "reasoning": {"enabled": False}, "temperature": 0.2, "seed": 1,
+            "messages": [{"role": "system", "content": "Return {\"text\": ...}"}, {"role": "user", "content": "{}"}]}
+    r = c.post("/v1/chat/completions", json=body)
+    assert r.status_code == 200, r.text
+    up = sent[0]
+    assert up["model"] == "dgemma" and "response_format" not in up and "temperature" not in up
+    assert "reasoning" not in up and "seed" not in up and up["max_tokens"] == 1024
+    assert "JSON object" in up["messages"][0]["content"]
+    assert up["chat_template_kwargs"] == {"enable_thinking": False}
+    out = r.json()
+    assert out["model"] == "diffusiongemma-26b"
+    assert _json.loads(out["choices"][0]["message"]["content"]) == {"text": "Zurich"}
+    assert c.post("/v1/chat/completions", json=dict(body, model="gpt-4")).status_code == 404
+
+
+def test_chat_passes_upstream_errors(tok):
+    c = chat_client(tok, lambda request: httpx_response({"error": {"message": "prompt too long"}}, 400))
+    r = c.post("/v1/chat/completions", json={"model": "diffusiongemma-26b", "messages": [{"role": "user", "content": "hi"}]})
+    assert r.status_code == 400 and r.json()["error"]["message"] == "prompt too long"
+
+
+def httpx_response(body, status=200):
+    import httpx
+
+    return httpx.Response(status, json=body)

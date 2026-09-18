@@ -2,7 +2,12 @@
 
 Request, response and error shapes follow TypeSafe's published OpenAPI 0.2.0,
 so their SDKs work against this server by pointing TYPESAFE_BASE_URL at it.
+Optional request fields beyond that contract (images, steps, samples, think,
+sequential) are ignored by the SDKs and change nothing when left out.
+POST /v1/chat/completions (openjev.chat) serves ordinary text generation.
 """
+import base64
+import binascii
 import hashlib
 import hmac
 import json
@@ -15,8 +20,9 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from .chat import Generator, add_chat_routes
 from .config import MODEL_ALIASES, MODEL_VERSION, MODELS, Settings
-from .engine import Engine, Overloaded, SchemaError
+from .engine import Engine, Overloaded, SchemaError, Upstream
 
 JSONContent = Union[str, dict[str, Any], list[Any]]
 Described = Union[str, dict[str, Any], list[Any], None]
@@ -48,10 +54,50 @@ class ScoreQuestion(BaseModel):
 Question = Annotated[Union[NoulQuestion, ChoiceQuestion, ScoreQuestion], Field(discriminator="type")]
 
 
+class ImageObject(BaseModel):
+    content_type: str
+    base64: str
+
+
 class SystemOneRequest(BaseModel):
     state: JSONContent
     model: str
     questions: dict[str, Question] = Field(min_length=1)
+    # OpenJev extensions; each is optional and off by default.
+    images: list[Union[str, ImageObject]] | None = None
+    steps: int | None = Field(default=None, ge=1, le=8)
+    samples: int | None = Field(default=None, ge=1, le=32)
+    think: int | None = Field(default=None, ge=0, le=4096)
+    sequential: bool | None = None
+
+
+IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+
+
+def image_parts(images, settings):
+    """Validate the request's images and turn them into OpenAI-style parts."""
+    if len(images) > settings.max_images:
+        raise SchemaError(f"at most {settings.max_images} images per request", ("body", "images"))
+    parts = []
+    for i, im in enumerate(images):
+        loc = ("body", "images", i)
+        if isinstance(im, str):
+            head, sep, data = im.partition(",")
+            ctype = head.removeprefix("data:").removesuffix(";base64")
+            if not (sep and head.startswith("data:") and head.endswith(";base64")):
+                raise SchemaError("an image is a data:image/...;base64, URL or {content_type, base64}", loc)
+        else:
+            ctype, data = im.content_type, im.base64
+        if ctype not in IMAGE_TYPES:
+            raise SchemaError(f"image type {ctype!r} is not supported; use JPEG, PNG, WebP or GIF", loc)
+        try:
+            size = len(base64.b64decode(data, validate=True))
+        except (binascii.Error, ValueError):
+            raise SchemaError("image data is not valid base64", loc) from None
+        if size > settings.max_image_bytes:
+            raise SchemaError(f"image is {size} bytes; the limit is {settings.max_image_bytes}", loc)
+        parts.append({"type": "image_url", "image_url": {"url": f"data:{ctype};base64,{data}"}})
+    return parts
 
 
 def error(status, error_type, message, headers=None):
@@ -72,8 +118,10 @@ def create_app(settings=None, tokenizer=None):
             from transformers import AutoTokenizer
             tok = AutoTokenizer.from_pretrained(settings.tokenizer)
         app.state.engine = Engine(settings, tok)
+        app.state.generator = Generator(settings)
         yield
         await app.state.engine.close()
+        await app.state.generator.close()
 
     app = FastAPI(title="OpenJev", version="0.2.0", lifespan=lifespan)
 
@@ -105,19 +153,27 @@ def create_app(settings=None, tokenizer=None):
         if req.model not in MODEL_ALIASES:
             return error(404, "not_found_error", f"Model {req.model!r} not found. Available: openjev-latest.")
         questions = {k: q.model_dump() for k, q in req.questions.items()}
-        # Same request, same noise draws: answers are reproducible.
-        seed = int.from_bytes(hashlib.sha256(json.dumps([req.state, questions], sort_keys=True).encode()).digest()[:4], "big")
+        options = {"steps": req.steps, "samples": req.samples, "think": req.think, "sequential": req.sequential}
         engine = request.app.state.engine
         try:
-            answers, input_tokens = await engine.decide(questions, req.state, seed)
+            images = image_parts(req.images, settings) if req.images else None
+            # Same request, same noise draws: answers are reproducible.
+            key = [req.state, questions] + ([[p["image_url"]["url"] for p in images]] if images else [])
+            seed = int.from_bytes(hashlib.sha256(json.dumps(key, sort_keys=True).encode()).digest()[:4], "big")
+            answers, input_tokens, thought_tokens = await engine.decide(questions, req.state, seed, images, options)
         except SchemaError as e:
             return validation_error(e.loc, str(e))
+        except Upstream as e:
+            return validation_error(["body"], f"the model rejected this request: {e}")
         except Overloaded as e:
             return error(529, "overloaded_error", str(e), {"retry-after": "1"})
         except httpx.HTTPError as e:
             return error(503, "api_error", f"inference backend unavailable: {type(e).__name__}", {"retry-after": "2"})
+        # output_tokens stays 0 as in Jev's contract unless a thought was generated
         return {"model": MODEL_VERSION, "answers": answers,
-                "usage": {"input_tokens": input_tokens, "output_tokens": 0}}
+                "usage": {"input_tokens": input_tokens, "output_tokens": thought_tokens}}
+
+    add_chat_routes(app)
 
     return app
 

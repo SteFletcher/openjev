@@ -17,6 +17,9 @@ vllm serve "$MODEL" \
   --host 127.0.0.1 --port 8000 \
   --diffusion-config "{\"canvas_length\": ${OPENJEV_CANVAS}}" \
   --max-logprobs 32 \
+  --limit-mm-per-prompt "{\"image\": ${OPENJEV_MAX_IMAGES:-8}, \"video\": 0}" \
+  --enable-auto-tool-choice --tool-call-parser gemma4 --reasoning-parser gemma4 \
+  --override-generation-config '{"max_new_tokens": null}' \
   --enable-prefix-caching \
   --async-scheduling \
   --attention-backend TRITON_ATTN \
@@ -33,6 +36,7 @@ until curl -sf http://127.0.0.1:8000/health >/dev/null; do
   sleep 5
 done
 
+python -m openjev.warmup
 python -m openjev &
 wait -n
 echo "openjev: a process exited; stopping" >&2

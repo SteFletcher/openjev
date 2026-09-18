@@ -25,6 +25,15 @@ class Settings:
     # Re-read policy: one read, and up to auto_max when any slot is uncertain.
     auto_threshold: float = field(default_factory=lambda: float(_env("OPENJEV_AUTO_THRESHOLD", "0.1")))
     auto_max: int = field(default_factory=lambda: int(_env("OPENJEV_AUTO_MAX", "4")))
+    # Images ahead of the state (an OpenJev extension to Jev's contract).
+    max_images: int = field(default_factory=lambda: int(_env("OPENJEV_MAX_IMAGES", "8")))
+    max_image_bytes: int = field(default_factory=lambda: int(_env("OPENJEV_MAX_IMAGE_BYTES", str(5 * 1024 * 1024))))
+    # Text generation (/v1/chat/completions): requests running at once, and
+    # waiting before the server answers 529. Kept small so generation, which
+    # denoises many blocks, cannot crowd out System One reads.
+    gen_max_inflight: int = field(default_factory=lambda: int(_env("OPENJEV_GEN_MAX_INFLIGHT", "8")))
+    gen_max_queue: int = field(default_factory=lambda: int(_env("OPENJEV_GEN_MAX_QUEUE", "32")))
+    gen_max_tokens: int = field(default_factory=lambda: int(_env("OPENJEV_GEN_MAX_TOKENS", "8192")))
 
 
 MODEL_VERSION = "openjev-0.1"
@@ -33,9 +42,12 @@ MODEL_VERSION = "openjev-0.1"
 MODEL_ALIASES = {"openjev-latest", MODEL_VERSION,
                  # accepted so TypeSafe's SDKs work unchanged (their default is jev-latest)
                  "jev-latest", "jev-preview"}
+GEN_MODEL = "diffusiongemma-26b"
 MODELS = [
     {"name": "openjev-latest", "description": "Alias for the newest OpenJev release. Currently openjev-0.1.",
      "release_date": "2026-09-18"},
     {"name": "openjev-0.1", "description": "OpenJev 0.1: DiffusionGemma 26B-A4B (NVFP4) on vLLM PR #57250.",
+     "release_date": "2026-09-18"},
+    {"name": GEN_MODEL, "description": "DiffusionGemma 26B-A4B (NVFP4) text generation at POST /v1/chat/completions.",
      "release_date": "2026-09-18"},
 ]
