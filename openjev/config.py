@@ -1,0 +1,38 @@
+"""Runtime settings, all from the environment."""
+import os
+from dataclasses import dataclass, field
+
+
+def _env(name, default):
+    return os.environ.get(name, default)
+
+
+@dataclass(frozen=True)
+class Settings:
+    upstream: str = field(default_factory=lambda: _env("OPENJEV_UPSTREAM", "http://127.0.0.1:8000"))
+    upstream_model: str = field(default_factory=lambda: _env("OPENJEV_UPSTREAM_MODEL", "dgemma"))
+    tokenizer: str = field(default_factory=lambda: _env("OPENJEV_TOKENIZER", "nvidia/diffusiongemma-26B-A4B-it-NVFP4"))
+    canvas: int = field(default_factory=lambda: int(_env("OPENJEV_CANVAS", "64")))
+    canvas_step: int = field(default_factory=lambda: int(_env("OPENJEV_CANVAS_STEP", "16")))
+    # Reads in flight against vLLM, and decisions allowed to wait for a slot
+    # before the server answers 529.
+    max_inflight: int = field(default_factory=lambda: int(_env("OPENJEV_MAX_INFLIGHT", "64")))
+    max_queue: int = field(default_factory=lambda: int(_env("OPENJEV_MAX_QUEUE", "512")))
+    # Optional auth. OPENJEV_API_KEY: clients send it as a Bearer token.
+    # OPENJEV_ORIGIN_SECRET: a front proxy sends it as X-Origin-Secret.
+    api_key: str = field(default_factory=lambda: _env("OPENJEV_API_KEY", ""))
+    origin_secret: str = field(default_factory=lambda: _env("OPENJEV_ORIGIN_SECRET", ""))
+    # Re-read policy: one read, and up to auto_max when any slot is uncertain.
+    auto_threshold: float = field(default_factory=lambda: float(_env("OPENJEV_AUTO_THRESHOLD", "0.1")))
+    auto_max: int = field(default_factory=lambda: int(_env("OPENJEV_AUTO_MAX", "4")))
+
+
+MODEL_VERSION = "openjev-1.0.0"
+MODEL_ALIASES = {"openjev-latest", "openjev-preview", MODEL_VERSION,
+                 # accepted so TypeSafe's SDKs work unchanged (their default is jev-latest)
+                 "jev-latest", "jev-preview"}
+MODELS = [
+    {"name": "openjev-latest", "description": "Latest OpenJev release. Currently openjev-1.0.0 (DiffusionGemma 26B-A4B, NVFP4).",
+     "release_date": "2026-09-18"},
+    {"name": "openjev-preview", "description": "Preview channel. Currently openjev-1.0.0.", "release_date": "2026-09-18"},
+]
