@@ -127,3 +127,20 @@ def test_answer_shapes_roundtrip():
     a = to_answer(q, [0.25, 0.75])
     decoded = msgspec.json.decode(msgspec.json.encode(a), type=ScoreAnswer)
     assert decoded.score == 0.75 and decoded.legend[1] == {"k": 1}
+
+
+def test_indexed_format_with_mixed_types(tok):
+    """Past ten questions answers are "q1yes q2A q3 4 ..."; every label type must keep one slot."""
+    eng = Engine(Settings(), tok)
+    qs = {}
+    for i in range(12):
+        if i % 3 == 0:
+            qs[f"n{i}"] = {"type": "noul"}
+        elif i % 3 == 1:
+            qs[f"s{i}"] = {"type": "score", "criteria": [f"level {k}" for k in range(10)]}
+        else:
+            qs[f"c{i}"] = {"type": "choice", "criteria": {f"opt{k}": None for k in range(40)}}
+    schema = eng.build_schema(qs)
+    assert schema["format"] == "indexed"
+    for g in eng.groups(schema["questions"], schema["format"]):
+        eng.resolve_template(g, schema["format"])
