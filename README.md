@@ -11,8 +11,8 @@ so their SDKs work against it unchanged. It runs on
 [DiffusionGemma 26B-A4B](https://huggingface.co/nvidia/diffusiongemma-26B-A4B-it-NVFP4)
 (Apache-2.0) through vLLM.
 
-> **Hosted for free at [codiv.ai](https://codiv.ai):** sign up and get 100M input tokens,
-> no card required. `https://api.codiv.ai/v1/systemone`
+> **Hosted for free on [Codiv](https://codiv.ai)**, an inference platform for open System One
+> models: sign up and get 100M input tokens, no card required. `https://api.codiv.ai/v1/systemone`
 
 OpenJev is an independent project. It is not affiliated with or endorsed by TypeSafe AI.
 
