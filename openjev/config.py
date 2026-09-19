@@ -12,6 +12,12 @@ class Settings:
     upstream: str = field(default_factory=lambda: _env("OPENJEV_UPSTREAM", "http://127.0.0.1:8000"))
     upstream_model: str = field(default_factory=lambda: _env("OPENJEV_UPSTREAM_MODEL", "dgemma"))
     tokenizer: str = field(default_factory=lambda: _env("OPENJEV_TOKENIZER", "nvidia/diffusiongemma-26B-A4B-it-NVFP4"))
+    # "vllm" reads through the upstream above. "mlx" runs the model in this process on Apple
+    # silicon (openjev.mlx_backend): mlx_model is a local path or a Hugging Face id and also
+    # supplies the tokenizer; requests longer than mlx_max_prompt tokens get a 422.
+    backend: str = field(default_factory=lambda: _env("OPENJEV_BACKEND", "vllm"))
+    mlx_model: str = field(default_factory=lambda: _env("OPENJEV_MLX_MODEL", "mlx-community/diffusiongemma-26B-A4B-it-4bit"))
+    mlx_max_prompt: int = field(default_factory=lambda: int(_env("OPENJEV_MLX_MAX_PROMPT", "32768")))
     canvas: int = field(default_factory=lambda: int(_env("OPENJEV_CANVAS", "64")))
     canvas_step: int = field(default_factory=lambda: int(_env("OPENJEV_CANVAS_STEP", "16")))
     # Reads in flight against vLLM, and decisions allowed to wait for a slot

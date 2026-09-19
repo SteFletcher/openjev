@@ -20,8 +20,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from .chat import Generator, add_chat_routes
-from .config import MODEL_ALIASES, MODEL_VERSION, MODELS, Settings
+from .chat import Generator, add_chat_routes, oai_error
+from .config import GEN_MODEL, MODEL_ALIASES, MODEL_VERSION, MODELS, Settings
 from .engine import Engine, Overloaded, SchemaError, Upstream
 
 JSONContent = Union[str, dict[str, Any], list[Any]]
@@ -110,14 +110,17 @@ def validation_error(loc, msg, value=None):
 
 def create_app(settings=None, tokenizer=None):
     settings = settings or Settings()
+    mlx = settings.backend == "mlx"
 
     @asynccontextmanager
     async def lifespan(app):
         tok = tokenizer
         if tok is None:
             from transformers import AutoTokenizer
-            tok = AutoTokenizer.from_pretrained(settings.tokenizer)
-        app.state.engine = Engine(settings, tok)
+            tok = AutoTokenizer.from_pretrained(settings.mlx_model if mlx else settings.tokenizer)
+        if mlx:
+            from .mlx_backend import MlxEngine
+        app.state.engine = (MlxEngine if mlx else Engine)(settings, tok)
         app.state.generator = Generator(settings)
         yield
         await app.state.engine.close()
@@ -146,7 +149,7 @@ def create_app(settings=None, tokenizer=None):
 
     @app.get("/v1/models")
     async def models():
-        return {"models": MODELS}
+        return {"models": [m for m in MODELS if not (mlx and m["name"] == GEN_MODEL)]}
 
     @app.post("/v1/systemone")
     async def systemone(req: SystemOneRequest, request: Request):
@@ -173,7 +176,12 @@ def create_app(settings=None, tokenizer=None):
         return {"model": MODEL_VERSION, "answers": answers,
                 "usage": {"input_tokens": input_tokens, "output_tokens": thought_tokens}}
 
-    add_chat_routes(app)
+    if mlx:  # the MLX backend answers reads only
+        @app.post("/v1/chat/completions")
+        async def chat_completions():
+            return oai_error(501, "Text generation is not available on the MLX backend.", "api_error")
+    else:
+        add_chat_routes(app)
 
     return app
 
