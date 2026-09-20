@@ -1,16 +1,18 @@
 # OpenJev
 
 **Fast, calibrated, typed decisions from an open model.** OpenJev is an open-source
-"System One" decision server: send it a state and a set of typed questions (yes/no,
-choice, score) and get back probabilities and a confidence for every answer, in tens of
-milliseconds. Answers are read straight off the model's probabilities, with no text generated
-and nothing parsed, so they cannot be hallucinated off-schema. Questions can be about images too.
+"System One" decision server. Send it a state and a set of typed questions (yes/no, choice,
+score). It returns a probability and a confidence for every answer in tens of milliseconds.
+It reads the answers straight off the model's probabilities. It generates no text and parses
+nothing, so an answer cannot go off-schema. Questions can also ask about images.
 
-It speaks the same wire API as TypeSafe's [Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev),
-so their SDKs work against it unchanged. It runs on
+OpenJev speaks the same wire API as TypeSafe's
+[Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev), so their SDKs work
+against it unchanged. It runs
 [DiffusionGemma 26B-A4B](https://huggingface.co/nvidia/diffusiongemma-26B-A4B-it-NVFP4)
-(Apache-2.0) through vLLM. The same loaded model also serves ordinary text generation on an
-OpenAI-compatible `/v1/chat/completions`, at no extra GPU memory.
+(Apache-2.0) two ways: through vLLM on an NVIDIA GPU, or in-process through MLX on Apple
+silicon. The vLLM backend also serves text generation on an OpenAI-compatible
+`/v1/chat/completions`, at no extra GPU memory.
 
 > **Hosted for free on [Codiv](https://codiv.ai)**, an inference platform for open System One
 > models: sign up and get 100M input tokens, no card required. `https://api.codiv.ai/v1/systemone`
@@ -59,7 +61,7 @@ curl https://api.codiv.ai/v1/systemone \
 |---|---|
 | `POST /v1/systemone` | `{state, model, questions}` → `{model, answers, usage}` |
 | `POST /v1/chat/completions` | OpenAI-style text generation with model `diffusiongemma-26b` ([below](#text-generation)) |
-| `GET /v1/models` | `openjev-0.1` and its alias `openjev-latest`. `jev-latest` and `jev-preview` are also accepted, so TypeSafe SDK defaults work. Also lists `diffusiongemma-26b`. |
+| `GET /v1/models` | `openjev-0.1` and its alias `openjev-latest`. The server also accepts `jev-latest` and `jev-preview`, so TypeSafe SDK defaults work. The list includes `diffusiongemma-26b`. |
 
 Question types:
 
@@ -67,36 +69,42 @@ Question types:
 - **`choice`**: takes `criteria: {name: description}` and returns `{choice, probabilities, confidence}`.
 - **`score`**: takes `criteria: [level0, level1, …]` (2–10 levels) and returns `{score: Σ i·pᵢ, legend, probabilities, confidence}`.
 
-`confidence` is `1 − H(p)/ln K`. It is 1 when the model is certain and 0 when the distribution is uniform.
-`usage.input_tokens` counts prompt tokens, including image tokens. `usage.output_tokens` is 0
-unless `think` is set (below). Errors follow the
-same shapes as Jev, checked against the live API: FastAPI `422` validation lists for a field of the
-wrong shape, `400` with the reason as plain text for a question that cannot be asked (no options,
-too many options or score levels), `400` `api_usage_error` for an unknown model or question type,
-`{"detail": {"error_type", "message"}}` for auth errors (`401`/`403`), `429`, and `529` when overloaded.
+`confidence` is `1 − H(p)/ln K`. It is 1 when the model is certain and 0 when the distribution
+is uniform. `usage.input_tokens` counts prompt tokens, including image tokens.
+`usage.output_tokens` is 0 unless you set `think` (below).
+
+Errors follow the same shapes as Jev, checked against the live API:
+
+- `422` with a FastAPI validation list for a field of the wrong shape.
+- `400` with the reason as plain text for a question the server cannot ask (no options, too many
+  options, or too many score levels).
+- `400` `api_usage_error` for an unknown model or question type.
+- `{"detail": {"error_type", "message"}}` for auth errors (`401`/`403`).
+- `429` for rate limits, and `529` when the server is overloaded.
 
 Known differences from Jev:
-- A choice can have at most 128 options (Jev allows 255); the refusal reads the same.
-- Model names are OpenJev's own; `jev-latest` and `jev-preview` are aliases, and a pinned Jev version
-  such as `jev-1.13.0` answers `400` `Unknown model`.
-- A choice with one option, or a score with one level, is answered directly (probability 1) without a
-  read, so it bills no tokens. Jev answers the same values and bills for the read.
-- A body nested a thousand levels deep answers `422`; Jev answers `500`.
-- Many questions are answered in chunks of about 12 per read. They are still answered in parallel.
+
+- A choice can have at most 128 options. Jev allows 255. The refusal reads the same.
+- Model names are OpenJev's own. `jev-latest` and `jev-preview` are aliases. A pinned Jev
+  version such as `jev-1.13.0` answers `400` `Unknown model`.
+- A choice with one option, or a score with one level, gets a direct answer (probability 1)
+  with no read, so it bills no tokens. Jev returns the same values and bills for the read.
+- A body nested a thousand levels deep answers `422`. Jev answers `500`.
+- The server answers many questions in chunks of about 12 per read, still in parallel.
 
 ### Extensions
 
-These optional request fields are OpenJev additions to Jev's contract. Leave them out and a request
-behaves exactly like Jev; TypeSafe's SDKs never send them. They come from the example server in
-vllm-project/vllm#57250.
+These optional request fields are OpenJev additions to Jev's contract. Leave them out and a
+request behaves exactly like Jev. TypeSafe's SDKs never send them. They come from the example
+server in vllm-project/vllm#57250.
 
 | Field | Values | What it does | Cost |
 |---|---|---|---|
-| `images` | up to 8 | Images the questions are about, placed ahead of the state. Each is a `data:image/...;base64,` URL or `{"content_type", "base64"}`; JPEG, PNG, WebP or GIF, 5 MB each. | about 280 input tokens per image |
+| `images` | up to 8 | Images the questions ask about, placed ahead of the state. Each is a `data:image/...;base64,` URL or `{"content_type", "base64"}`. JPEG, PNG, WebP or GIF, 5 MB each. | about 280 input tokens per image |
 | `steps` | 1–8, default 1 | Denoise steps per read. More steps let the answers settle against each other. | same tokens, more GPU time |
 | `samples` | 1–32 | Read N times with different noise and average. Replaces the automatic re-reads. | N × input tokens |
-| `think` | 0–4096 tokens | Let the model write a thought first, then read the answers after it. The number is a hard cap: a thought that hits it is cut off, so give multi-step problems 512 or more. | input tokens twice, plus the thought as output tokens |
-| `sequential` | `true` | For long question lists answered in chunks: read the chunks in order, each seeing the answers already chosen. | one read per chunk, run one after another |
+| `think` | 0–4096 tokens | The model writes a thought first, then reads the answers after it. The number is a hard cap. A thought that hits the cap gets cut off, so give multi-step problems 512 or more. | input tokens twice, plus the thought as output tokens |
+| `sequential` | `true` | For long question lists answered in chunks: read the chunks in order. Each chunk sees the answers already chosen. | one read per chunk, run one after another |
 
 ```bash
 curl https://api.codiv.ai/v1/systemone \
@@ -106,26 +114,29 @@ curl https://api.codiv.ai/v1/systemone \
        "questions": {"hotdog": {"type": "noul", "instructions": "The photo shows a hot dog"}}}'
 ```
 
-`think` and `sequential` need a text state, so they cannot be combined with `images` (the request
-gets a 400).
+`think` and `sequential` need a text state, so you cannot combine them with `images`. Such a
+request gets a 400.
 
 ### Text generation
 
-`POST /v1/chat/completions` generates text with the same DiffusionGemma, OpenAI style, so tools that
-talk to a chat model can point their base URL at OpenJev. Use model `diffusiongemma-26b`.
+`POST /v1/chat/completions` generates text with the same DiffusionGemma, OpenAI style. Tools
+that talk to a chat model can point their base URL at OpenJev. Use model `diffusiongemma-26b`.
+This endpoint needs the vLLM backend. The MLX backend answers 501.
 
-vLLM refuses some fields for diffusion models, so OpenJev adjusts requests instead of failing them:
-- `temperature`, `seed`, `min_p`, `logit_bias`, penalties and `reasoning` are ignored.
-- `response_format` (`json_object` or `json_schema`) becomes an instruction to reply with JSON only,
-  and the first JSON object in the reply is returned as the content.
-- `max_tokens` defaults to 1024 and is capped at 8192. Thinking is off unless you set
-  `chat_template_kwargs: {"enable_thinking": true}`; the thought then comes back separately in
+vLLM refuses some fields for diffusion models, so OpenJev adjusts requests instead of failing
+them:
+
+- It ignores `temperature`, `seed`, `min_p`, `logit_bias`, penalties and `reasoning`.
+- `response_format` (`json_object` or `json_schema`) becomes an instruction to reply with JSON
+  only. The server returns the first JSON object in the reply as the content.
+- `max_tokens` defaults to 1024, with a cap of 8192. Thinking stays off unless you set
+  `chat_template_kwargs: {"enable_thinking": true}`. The thought then comes back separately in
   `message.reasoning`, never in `content`.
-- `stream: true` streams server-sent events and always ends with a usage chunk. Tools
-  (`tools`, `tool_choice`) are supported.
+- `stream: true` streams server-sent events and always ends with a usage chunk.
+- The endpoint supports tools (`tools`, `tool_choice`).
 
-Generation denoises the output in 64-token blocks, so it costs far more GPU time than a System One
-read. At most 8 generations run at once, so they never crowd out reads.
+Generation denoises the output in 64-token blocks, so it costs far more GPU time than a System
+One read. At most 8 generations run at once, so they never crowd out reads.
 
 ```python
 from openai import OpenAI
@@ -140,33 +151,63 @@ print(r.choices[0].message.content)
 
 ## How it works
 
-DiffusionGemma is a discrete diffusion model: it denoises a whole canvas of tokens per
-forward pass instead of generating left to right. OpenJev writes the answer template
-onto the canvas, for example:
+DiffusionGemma is a discrete diffusion model. It denoises a whole canvas of tokens per forward
+pass instead of generating left to right. OpenJev uses that to read answers instead of writing
+them.
+
+It builds a canvas where the only masked tokens are the answer slots, one token per question:
 
 ```
-q1: ▒
-q2: ▒
-q3: ▒
+canvas in                 one read-only pass         answer out
+  q1: [?]        ──►      P(yes) 0.001        ──►    noul  0.001
+  q2: [?]                 P(A) 0.000                 choice "billing"
+                          P(B) 0.999                 confidence 0.997
+                          P(C) 0.000
+  q3: [?]                 P(0) 0.000                 score 1.00
+                          P(1) 0.996
+                          P(2) 0.004
 ```
 
-Only the label slots are left as noise. One read-only denoise step then gives a full
-probability distribution over each question's labels, and those distributions are the
-answers. If any slot is uncertain (entropy > 0.1), OpenJev re-reads with fresh noise up to
-four times and averages the results. Question ids never reach the model.
+Every label is a single token: `yes`/`no` for a `noul`, `A`/`B`/`C` for a choice, `0`/`1`/`2`
+for a score. The model never writes into those slots. One read-only pass returns the
+probability distribution over each slot, and that distribution **is** the answer. The numbers
+above are a real read of "The invoice looks wrong again. Second time this quarter.": not
+urgent, billing, mildly annoyed.
 
-The vLLM side of this is [vllm-project/vllm#57250](https://github.com/vllm-project/vllm/pull/57250),
-which adds seeded canvases, read-only steps and step caps for DiffusionGemma. `openjev/engine.py` is
-adapted from that PR's `structured_server.py` example, with async I/O, bounded concurrency and
-backpressure added.
+Two consequences follow. An answer cannot go off-schema, because the read scores only the label
+tokens. And the confidence comes from the model's own distribution, not from a number the model
+reports about itself.
+
+If any slot is uncertain (entropy > 0.1), OpenJev re-reads with fresh noise up to four times
+and averages the results. Question ids never reach the model: it sees `q1`, `q2`, `q3`.
+
+The vLLM side of this is
+[vllm-project/vllm#57250](https://github.com/vllm-project/vllm/pull/57250), which adds seeded
+canvases, read-only steps and step caps for DiffusionGemma. `openjev/engine.py` is adapted from
+that PR's `structured_server.py` example. It adds async I/O, bounded concurrency and
+backpressure.
 
 ## Run your own
 
-You need an NVIDIA GPU with at least 24 GB of memory for the NVFP4 checkpoint (tested on an RTX PRO 6000 Blackwell, sm_120).
+Two backends serve the same `/v1/systemone`. Pick by hardware:
+
+| | vLLM (default) | MLX |
+|---|---|---|
+| Hardware | NVIDIA GPU, 24 GB or more | Apple silicon, about 16 GB free |
+| Setup | Docker image | `pip install -e '.[mlx]'` |
+| Reads | up to 64 in flight | one at a time |
+| Images, `think`, `steps` > 1 | yes | not yet (400) |
+| Text generation | yes | not yet (501) |
+
+### NVIDIA GPU
+
+You need an NVIDIA GPU with at least 24 GB of memory for the NVFP4 checkpoint (tested on an
+RTX PRO 6000 Blackwell, sm_120).
 
 A prebuilt image is on Docker Hub, so there is nothing to compile.
 [`razorback16/openjev`](https://hub.docker.com/r/razorback16/openjev) runs vLLM with PR #57250
-(CUDA 13, [pin below](#caveats)) and the Jev-compatible API server in one container:
+in one container with the Jev-compatible API server. It uses CUDA 13 and the
+[pin below](#caveats).
 
 ```bash
 git clone https://github.com/razorback16/openjev && cd openjev
@@ -181,33 +222,12 @@ docker run -d --gpus all --ipc=host -p 127.0.0.1:8080:8080 \
   -v ~/.cache/huggingface:/root/.cache/huggingface razorback16/openjev:0.2.1
 ```
 
-The model weights (about 18 GB) download on first start into `~/.cache/huggingface`.
-Use `docker compose build` to build the image yourself instead. vLLM listens only inside the
-container; set `OPENJEV_UPSTREAM` to skip it and use a vLLM server you already run.
+The model weights (about 18 GB) download on first start into `~/.cache/huggingface`. Use
+`docker compose build` to build the image yourself instead. vLLM listens only inside the
+container. Set `OPENJEV_UPSTREAM` to skip it and use a vLLM server you already run.
 
-Settings are read from the environment:
-
-| Variable | Default | Meaning |
-|---|---|---|
-| `OPENJEV_UPSTREAM` | unset | external vLLM server URL; when set, the container does not start its own |
-| `OPENJEV_MODEL` | `nvidia/diffusiongemma-26B-A4B-it-NVFP4` | weights the built-in vLLM serves |
-| `OPENJEV_GPU_UTIL` | `0.9` | vLLM `--gpu-memory-utilization` |
-| `OPENJEV_MAX_NUM_SEQS` | `64` | vLLM `--max-num-seqs` |
-| `OPENJEV_MAX_MODEL_LEN` | `65536` | vLLM `--max-model-len` |
-| `OPENJEV_VLLM_ARGS` | unset | extra `vllm serve` flags |
-| `OPENJEV_CANVAS` | `64` | canvas length; also sets the built-in vLLM's `--diffusion-config` |
-| `OPENJEV_MAX_INFLIGHT` | `64` | reads in flight to vLLM |
-| `OPENJEV_MAX_QUEUE` | `512` | waiting decisions before the server returns 529 |
-| `OPENJEV_API_KEY` | unset | require `Authorization: Bearer <key>` |
-| `OPENJEV_ORIGIN_SECRET` | unset | require an `X-Origin-Secret` header (for use behind a proxy) |
-| `OPENJEV_MAX_IMAGES` | `8` | images per request; also sets the built-in vLLM's `--limit-mm-per-prompt` |
-| `OPENJEV_MAX_IMAGE_BYTES` | `5242880` | size limit per image, after base64 decoding |
-| `OPENJEV_GEN_MAX_INFLIGHT` | `8` | text generations running at once |
-| `OPENJEV_GEN_MAX_QUEUE` | `32` | waiting generations before the server returns 529 |
-| `OPENJEV_GEN_MAX_TOKENS` | `8192` | cap on `max_tokens` for text generation |
-| `OPENJEV_WARMUP` | `1` | `0` skips the warmup requests sent before the API opens (they save the first users several seconds of compiling) |
-
-Measured on an RTX PRO 6000 using 38% of the GPU, with 3 questions per request and cache-busted states:
+Measured on an RTX PRO 6000 using 38% of the GPU, with 3 questions per request and cache-busted
+states:
 
 | Concurrency | req/s | p50 | p95 |
 |---:|---:|---:|---:|
@@ -233,8 +253,8 @@ pip install -e path/to/openjev && python -m openjev
 
 ### Apple silicon
 
-On a Mac there is no vLLM and no Docker: `OPENJEV_BACKEND=mlx` runs DiffusionGemma inside the
-OpenJev process through [MLX](https://github.com/ml-explore/mlx) and
+A Mac needs no vLLM and no Docker. `OPENJEV_BACKEND=mlx` runs DiffusionGemma inside the OpenJev
+process through [MLX](https://github.com/ml-explore/mlx) and
 [mlx-vlm](https://github.com/Blaizzy/mlx-vlm). The 4-bit weights need about 16 GB of memory.
 
 ```bash
@@ -242,36 +262,58 @@ pip install -e '.[mlx]'
 OPENJEV_BACKEND=mlx python -m openjev     # 127.0.0.1:8080
 ```
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `OPENJEV_BACKEND` | `vllm` | `mlx` to run the model in-process on Apple silicon |
-| `OPENJEV_MLX_MODEL` | `mlx-community/diffusiongemma-26B-A4B-it-4bit` | MLX weights: a local directory or a Hugging Face id. Also supplies the tokenizer. `8bit` and `bf16` builds exist too. |
-| `OPENJEV_MLX_MAX_PROMPT` | `32768` | longest request, in tokens, before a 400 |
+`/v1/systemone` answers text reads with the same prompts, canvases and seeds as the vLLM
+backend, including `samples`, `sequential` and the automatic re-reads. The MLX backend does not
+support `images`, `think` and `steps` above 1 yet. Such a request gets a 400. Text generation
+answers 501.
 
-`/v1/systemone` answers text reads with the same prompts, canvases and seeds as the vLLM backend,
-including `samples`, `sequential` and the automatic re-reads. Not on this backend yet: `images`,
-`think` and `steps` above 1 (the request gets a 400), and text generation (`/v1/chat/completions`
-returns 501). Reads run one at a time, so it suits local use rather than serving: on an M3 Ultra
-with the 4-bit weights a 3-question request takes about 0.2–0.4 s, and 16 concurrent requests
-finish at about 4 req/s.
+Reads run one at a time, so this backend suits local use rather than serving. A 3-question
+request takes about 0.2–0.4 s on an M3 Ultra and about 0.39 s on an M4 Max, both with the 4-bit
+weights. 16 concurrent requests finish at about 4 req/s.
 
 ```bash
 OPENJEV_MLX_TEST_MODEL=path/to/weights pytest tests/test_mlx_model.py   # tests against the real model
 ```
 
+### Settings
+
+The server reads its settings from the environment.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `OPENJEV_BACKEND` | `vllm` | `mlx` to run the model in-process on Apple silicon |
+| `OPENJEV_UPSTREAM` | unset | external vLLM server URL. When set, the container does not start its own |
+| `OPENJEV_MODEL` | `nvidia/diffusiongemma-26B-A4B-it-NVFP4` | weights the built-in vLLM serves |
+| `OPENJEV_MLX_MODEL` | `mlx-community/diffusiongemma-26B-A4B-it-4bit` | MLX weights: a local directory or a Hugging Face id. Also supplies the tokenizer. `8bit` and `bf16` builds exist too. |
+| `OPENJEV_MLX_MAX_PROMPT` | `32768` | longest request, in tokens, before a 400 |
+| `OPENJEV_GPU_UTIL` | `0.9` | vLLM `--gpu-memory-utilization` |
+| `OPENJEV_MAX_NUM_SEQS` | `64` | vLLM `--max-num-seqs` |
+| `OPENJEV_MAX_MODEL_LEN` | `65536` | vLLM `--max-model-len` |
+| `OPENJEV_VLLM_ARGS` | unset | extra `vllm serve` flags |
+| `OPENJEV_CANVAS` | `64` | canvas length. Also sets the built-in vLLM's `--diffusion-config` |
+| `OPENJEV_MAX_INFLIGHT` | `64` | reads in flight to vLLM |
+| `OPENJEV_MAX_QUEUE` | `512` | waiting decisions before the server returns 529 |
+| `OPENJEV_API_KEY` | unset | require `Authorization: Bearer <key>` |
+| `OPENJEV_ORIGIN_SECRET` | unset | require an `X-Origin-Secret` header (for use behind a proxy) |
+| `OPENJEV_MAX_IMAGES` | `8` | images per request. Also sets the built-in vLLM's `--limit-mm-per-prompt` |
+| `OPENJEV_MAX_IMAGE_BYTES` | `5242880` | size limit per image, after base64 decoding |
+| `OPENJEV_GEN_MAX_INFLIGHT` | `8` | text generations running at once |
+| `OPENJEV_GEN_MAX_QUEUE` | `32` | waiting generations before the server returns 529 |
+| `OPENJEV_GEN_MAX_TOKENS` | `8192` | cap on `max_tokens` for text generation |
+| `OPENJEV_WARMUP` | `1` | `0` skips the warmup requests sent before the API opens. They save the first users several seconds of compiling. |
+
 ## Caveats
 
-- vllm-project/vllm#57250 has not been merged. The request fields it uses (`vllm_xargs`) are
+- vllm-project/vllm#57250 has not merged yet. The request fields it uses (`vllm_xargs`) are
   provisional, so this project pins a commit
-  ([`razorback16/vllm` branch `structured-reads-54309`](https://github.com/razorback16/vllm/tree/structured-reads-54309)):
-  the PR's head plus fixes that keep vLLM's engine from crashing:
-  - vllm-project/vllm#54309, for any request with an image (vllm-project/vllm#56712);
-  - the sampler step fell back to eager code with a dtype mismatch once torch.compile hit its
-    recompile limit, breaking multi-step reads and text generation;
-  - logprobs stashed at different steps could not be joined when reads and generations shared a
-    batch.
+  ([`razorback16/vllm` branch `structured-reads-54309`](https://github.com/razorback16/vllm/tree/structured-reads-54309)).
+  That branch is the PR's head plus three fixes that keep vLLM's engine from crashing:
+  - vllm-project/vllm#54309, for any request with an image (vllm-project/vllm#56712).
+  - The sampler step fell back to eager code with a dtype mismatch once torch.compile hit its
+    recompile limit. This broke multi-step reads and text generation.
+  - Logprobs stashed at different steps could not join when reads and generations shared a batch.
 - Answer quality is the quality of DiffusionGemma 26B-A4B used in this mode. Evaluate it on your
-  own tasks before relying on it.
+  own tasks before you rely on it.
 
 ## Development
 
