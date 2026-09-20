@@ -67,14 +67,56 @@ def test_a_cached_prefill_reads_the_same(client):
 
     def fresh(canvas):
         rt.prefills.clear()
-        return rt.read(prompt, canvas, slots)
+        return rt.read(prompt, canvas, slots, engine.s.mlx_max_prompt)
 
     def reused():
         rt.prefills.clear()
-        return [rt.read(prompt, c, slots) for c in canvases]
+        return [rt.read(prompt, c, slots, engine.s.mlx_max_prompt) for c in canvases]
 
     cold = [rt.pool.submit(fresh, c).result() for c in canvases]
     assert rt.pool.submit(reused).result() == cold  # bitwise
+
+
+COLOUR = {"colour": {"type": "choice", "instructions": "What colour fills the picture?",
+                     "criteria": {"red": "the image is red", "blue": "the image is blue",
+                                  "green": "the image is green"}}}
+
+
+def solid_png(rgb, size=64):
+    import base64
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (size, size), rgb).save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
+def test_the_model_reads_an_image(client):
+    """A solid colour is the least ambiguous thing an image can say, so a wrong
+    or hedged answer here is a real failure, not flakiness."""
+    for colour, rgb in (("red", (255, 0, 0)), ("blue", (0, 0, 255))):
+        body = ask(client, "What colour is this?", COLOUR, images=[solid_png(rgb)])
+        a = body["answers"]["colour"]
+        assert a["choice"] == colour and a["probabilities"][colour] > 0.9, (colour, a)
+        assert body["usage"]["input_tokens"] > 100
+
+
+def test_an_image_prefill_reads_the_same_cold_or_reused(client):
+    """Mirrors test_a_cached_prefill_reads_the_same: the decoder pass must leave
+    an image prompt's cache as it found it, or re-reads would drift."""
+    rt = client.app.state.engine.runtime
+    body = {"state": "What colour is this?", "model": "openjev-latest",
+            "questions": COLOUR, "images": [solid_png((255, 0, 0))]}
+    rt.pool.submit(rt.prefills.clear).result()
+    cold = client.post("/v1/systemone", json=body)
+    assert cold.status_code == 200, cold.text
+    assert rt.prefills, "the image prefill was not cached"
+    reused = client.post("/v1/systemone", json=body)  # this one hits the cached vision pass
+    assert reused.status_code == 200 and reused.json() == cold.json()
+    assert ask(client, body["state"], COLOUR, images=body["images"], samples=3) == \
+        ask(client, body["state"], COLOUR, images=body["images"], samples=3)
 
 
 def test_many_questions_chunk_and_run_in_sequence(client):

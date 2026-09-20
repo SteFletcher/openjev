@@ -10,9 +10,31 @@ from transformers import AutoTokenizer
 from openjev import mlx_backend
 from openjev.api import create_app
 from openjev.config import Settings
-from openjev.engine import PAD, TURN_CLOSE, Engine
+from openjev.engine import PAD, TURN_CLOSE, Engine, SchemaError
 
 from test_api import EXAMPLE, PNG, TOKENIZER
+
+# The stub stands in for MlxRuntime, so it must speak the same protocol: a read
+# takes (prompt, canvas, slots, max_tokens) and returns (logprobs, prompt
+# tokens). A prompt is either token ids or an ImagePrompt, which only the real
+# processor can expand; here it is counted and keyed the way the runtime does.
+IMAGE_TOKENS = 256
+
+
+def stub_images(prompt):
+    return list(getattr(prompt, "images", ()) or ())
+
+
+def stub_key(prompt):
+    key = getattr(prompt, "key", None)
+    return key if key is not None else tuple(prompt)
+
+
+def stub_tokens(prompt):
+    if isinstance(prompt, (list, tuple)):
+        return len(prompt)
+    text = prompt.sys_text + prompt.state_text
+    return len(text.split()) + IMAGE_TOKENS * len(prompt.images)
 
 
 class StubRuntime:
@@ -24,13 +46,17 @@ class StubRuntime:
         self.pool = ThreadPoolExecutor(max_workers=1)
         self.reads = []
 
-    def read(self, prompt, canvas, slots):
-        self.reads.append({"prompt": prompt, "canvas": canvas, "slots": slots})
+    def read(self, prompt, canvas, slots, max_tokens=None, **kw):
+        n = stub_tokens(prompt)
+        self.reads.append({"prompt": prompt, "canvas": canvas, "slots": slots, "tokens": n,
+                           "key": stub_key(prompt), "images": stub_images(prompt), **kw})
+        if max_tokens is not None and n > max_tokens:
+            raise SchemaError(f"the request is {n} tokens; the limit is {max_tokens}")
         out = []
         for s in slots:
             ids = s["label_ids"]
             out.append({i: math.log(0.99 if i == ids[0] else 0.01 / (len(ids) - 1)) for i in ids})
-        return out
+        return out, n
 
     def close(self):
         self.pool.shutdown()
@@ -104,11 +130,65 @@ def test_samples_and_sequential_work(client):
 
 
 def test_unsupported_options_are_refused(client):
-    for extra, field in [({"images": [f"data:image/png;base64,{PNG}"]}, "images"), ({"think": 64}, "think"), ({"steps": 2}, "steps")]:
+    for extra, field in [({"think": 64}, "think"), ({"steps": 2}, "steps")]:
         r = client.post("/v1/systemone", json=dict(EXAMPLE, **extra))
         assert r.status_code == 400 and r.json()["detail"].startswith(field), r.text
     assert client.app.state.engine.runtime.reads == []
     assert client.post("/v1/systemone", json=dict(EXAMPLE, steps=1, think=0)).status_code == 200
+
+
+# a second 1x1 PNG, a different colour, so its bytes differ from PNG's
+PNG2 = ("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQ"
+        "AAAABJRU5ErkJggg==")
+
+
+def url(png):
+    return f"data:image/png;base64,{png}"
+
+
+def test_an_image_read_goes_to_the_runtime(client):
+    """Images are answered on MLX, not refused, and the runtime is handed them."""
+    r = client.post("/v1/systemone", json=dict(EXAMPLE, images=[url(PNG)]))
+    assert r.status_code == 200, r.text
+    (read,) = client.app.state.engine.runtime.reads
+    assert read["images"], "the runtime was given no images"
+    assert len(read["images"]) == 1
+    assert r.json()["answers"]["department"]["choice"] == "billing"
+
+
+def test_image_usage_counts_the_expanded_prompt(client):
+    """README promises input_tokens covers the image's expanded tokens, so the
+    runtime's own count is what gets billed, not the text prompt's length."""
+    r = client.post("/v1/systemone", json=dict(EXAMPLE, images=[url(PNG)]))
+    assert r.status_code == 200, r.text
+    (read,) = client.app.state.engine.runtime.reads
+    assert r.json()["usage"]["input_tokens"] == read["tokens"] >= IMAGE_TOKENS
+
+
+def test_images_do_not_share_a_prefill_entry(client):
+    """Two images on one prompt, and the same prompt with no image, must each
+    key the prefill cache differently or one read would answer for another."""
+    for images in ([url(PNG)], [url(PNG2)], None):
+        body = dict(EXAMPLE, images=images) if images else dict(EXAMPLE)
+        assert client.post("/v1/systemone", json=body).status_code == 200
+    keys = [r["key"] for r in client.app.state.engine.runtime.reads]
+    assert len(keys) == 3 and len(set(keys)) == 3, keys
+
+
+def test_same_image_request_same_canvas(client):
+    body = dict(EXAMPLE, images=[url(PNG)])
+    client.post("/v1/systemone", json=body)
+    client.post("/v1/systemone", json=body)
+    first, second = client.app.state.engine.runtime.reads
+    assert first["canvas"] == second["canvas"]
+    assert first["key"] == second["key"]  # so the second read reuses the prefill
+
+
+def test_images_with_think_or_sequential_are_still_refused(client):
+    for opt in ({"think": 64}, {"sequential": True}):
+        r = client.post("/v1/systemone", json=dict(EXAMPLE, images=[url(PNG)], **opt))
+        assert r.status_code == 400, r.text
+        assert r.json()["detail"].startswith(next(iter(opt)))
 
 
 def test_long_prompts_are_refused(tok, monkeypatch):

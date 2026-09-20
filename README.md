@@ -196,7 +196,8 @@ Two backends serve the same `/v1/systemone`. Pick by hardware:
 | Hardware | NVIDIA GPU, 24 GB or more | Apple silicon, about 16 GB free |
 | Setup | Docker image | `pip install -e '.[mlx]'` |
 | Reads | up to 64 in flight | one at a time |
-| Images, `think`, `steps` > 1 | yes | not yet (400) |
+| `images` | yes | yes |
+| `think`, `steps` > 1 | yes | not yet (400) |
 | Text generation | yes | not yet (501) |
 
 ### NVIDIA GPU
@@ -263,10 +264,14 @@ pip install -e '.[mlx]'
 OPENJEV_BACKEND=mlx python -m openjev     # 127.0.0.1:8080
 ```
 
-`/v1/systemone` answers text reads with the same prompts, canvases and seeds as the vLLM
-backend, including `samples`, `sequential` and the automatic re-reads. The MLX backend does not
-support `images`, `think` and `steps` above 1 yet. Such a request gets a 400. Text generation
-answers 501.
+`/v1/systemone` answers reads with the same prompts, canvases and seeds as the vLLM backend,
+including `images`, `samples`, `sequential` and the automatic re-reads. The MLX backend does not
+support `think` and `steps` above 1 yet. Such a request gets a 400. Text generation answers 501.
+
+An image read builds its prompt with the mlx-vlm processor, which expands each image into its
+soft tokens. `usage.input_tokens` and `OPENJEV_MLX_MAX_PROMPT` both count that expanded prompt.
+The server keeps the prefill of a recent prompt, so the re-reads and the `samples` of one
+request share a single vision pass.
 
 Reads run one at a time, so this backend suits local use rather than serving. A 3-question
 request takes about 0.2–0.4 s on an M3 Ultra and about 0.39 s on an M4 Max, both with the 4-bit
