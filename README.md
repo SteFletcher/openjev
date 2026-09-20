@@ -246,11 +246,11 @@ OPENJEV_BACKEND=mlx python -m openjev     # 127.0.0.1:8080
 |---|---|---|
 | `OPENJEV_BACKEND` | `vllm` | `mlx` to run the model in-process on Apple silicon |
 | `OPENJEV_MLX_MODEL` | `mlx-community/diffusiongemma-26B-A4B-it-4bit` | MLX weights: a local directory or a Hugging Face id. Also supplies the tokenizer. `8bit` and `bf16` builds exist too. |
-| `OPENJEV_MLX_MAX_PROMPT` | `32768` | longest request, in tokens, before a 422 |
+| `OPENJEV_MLX_MAX_PROMPT` | `32768` | longest request, in tokens, before a 400 |
 
 `/v1/systemone` answers text reads with the same prompts, canvases and seeds as the vLLM backend,
 including `samples`, `sequential` and the automatic re-reads. Not on this backend yet: `images`,
-`think` and `steps` above 1 (the request gets a 422), and text generation (`/v1/chat/completions`
+`think` and `steps` above 1 (the request gets a 400), and text generation (`/v1/chat/completions`
 returns 501). Reads run one at a time, so it suits local use rather than serving: on an M3 Ultra
 with the 4-bit weights a 3-question request takes about 0.2–0.4 s, and 16 concurrent requests
 finish at about 4 req/s.

@@ -111,8 +111,8 @@ log = logging.getLogger("openjev")
 
 # A rejected body is never logged: only where it was wrong and why, so common client
 # mistakes are visible without keeping anyone's data.
-def log_invalid(request, parts):
-    log.warning("422 %s %s", getattr(request.state, "request_id", "-"), "; ".join(parts) or "invalid request")
+def log_invalid(request, parts, status=422):
+    log.warning("%s %s %s", status, getattr(request.state, "request_id", "-"), "; ".join(parts) or "invalid request")
 
 
 # depth and width a rejected value is echoed to, so encoding it can't run away
@@ -141,12 +141,14 @@ def semantic_error(loc, msg, request=None):
     """A request whose shape is fine but whose meaning isn't, in Jev's shape: 400 with a
     plain-string detail. Field-level problems stay 422 with a list (see invalid_body)."""
     if request is not None:
-        log_invalid(request, [f"{'.'.join(str(p) for p in loc)}: {msg}"])
+        log_invalid(request, [f"{'.'.join(str(p) for p in loc)}: {msg}"], status=400)
     return JSONResponse({"detail": msg}, status_code=400)
 
 
 def create_app(settings=None, tokenizer=None):
     settings = settings or Settings()
+    if settings.backend not in ("vllm", "mlx"):
+        raise ValueError(f"unknown backend {settings.backend!r}; use \"vllm\" or \"mlx\"")
     mlx = settings.backend == "mlx"
 
     @asynccontextmanager

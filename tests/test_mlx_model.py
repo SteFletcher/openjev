@@ -87,7 +87,7 @@ def test_many_questions_chunk_and_run_in_sequence(client):
 
 def test_refusals(client):
     r = client.post("/v1/systemone", json={"state": "x", "model": "openjev-latest", "questions": QUESTIONS, "think": 64})
-    assert r.status_code == 422 and r.json()["detail"][0]["loc"] == ["body", "think"]
+    assert r.status_code == 400 and r.json()["detail"].startswith("think")
     r = client.post("/v1/chat/completions", json={"model": "diffusiongemma-26b", "messages": [{"role": "user", "content": "hi"}]})
     assert r.status_code == 501
 

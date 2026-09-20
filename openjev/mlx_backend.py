@@ -8,7 +8,7 @@ reports. mlx and mlx_vlm are imported only when a runtime is built, so the
 vLLM path never needs them.
 
 Not on this backend yet: images, think, more than one denoise step, and text
-generation. A request for one gets a 422 (or a 501) instead of a wrong answer.
+generation. A request for one gets a 400 (or a 501) instead of a wrong answer.
 """
 import asyncio
 from collections import OrderedDict

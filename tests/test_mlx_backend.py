@@ -106,7 +106,7 @@ def test_samples_and_sequential_work(client):
 def test_unsupported_options_are_refused(client):
     for extra, field in [({"images": [f"data:image/png;base64,{PNG}"]}, "images"), ({"think": 64}, "think"), ({"steps": 2}, "steps")]:
         r = client.post("/v1/systemone", json=dict(EXAMPLE, **extra))
-        assert r.status_code == 422 and r.json()["detail"][0]["loc"] == ["body", field], r.text
+        assert r.status_code == 400 and r.json()["detail"].startswith(field), r.text
     assert client.app.state.engine.runtime.reads == []
     assert client.post("/v1/systemone", json=dict(EXAMPLE, steps=1, think=0)).status_code == 200
 
@@ -116,7 +116,7 @@ def test_long_prompts_are_refused(tok, monkeypatch):
     with TestClient(create_app(Settings(backend="mlx", mlx_max_prompt=200), tokenizer=tok)) as c:
         assert c.post("/v1/systemone", json=EXAMPLE).status_code == 200
         r = c.post("/v1/systemone", json=dict(EXAMPLE, state="word " * 400))
-        assert r.status_code == 422 and "limit is 200" in r.json()["detail"][0]["msg"]
+        assert r.status_code == 400 and "limit is 200" in r.json()["detail"]
 
 
 def test_no_text_generation(client):

@@ -35,7 +35,7 @@ FORMATS = {
 
 
 class SchemaError(ValueError):
-    """A request the model cannot answer as asked; surfaced as a 422."""
+    """A request the model cannot answer as asked; surfaced as a 400."""
 
     def __init__(self, msg, loc=("body",)):
         super().__init__(msg)
@@ -47,7 +47,7 @@ class Overloaded(RuntimeError):
 
 
 class Upstream(RuntimeError):
-    """vLLM refused a request it was sent (a 4xx); surfaced as a 422."""
+    """vLLM refused a request it was sent (a 4xx); surfaced as a 400."""
 
 
 DEFAULT_OPTIONS = {"steps": 1, "samples": None, "think": 0, "sequential": False}
