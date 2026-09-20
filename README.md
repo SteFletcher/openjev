@@ -239,9 +239,10 @@ states:
 Without Docker:
 
 ```bash
-git clone https://github.com/razorback16/vllm -b structured-reads-54309 && cd vllm
+git clone https://github.com/razorback16/vllm && cd vllm
+git checkout baa833874881ba62cef99e0c5b716fb136c4a009   # the same commit the image pins
 VLLM_USE_PRECOMPILED=1 \
-  VLLM_PRECOMPILED_WHEEL_COMMIT=2c88fb131c7ae0be01907cd8c276911db5e7aad4 pip install -e .
+  VLLM_PRECOMPILED_WHEEL_COMMIT=36fa72d2d0d2f86c7c83e1e99c9012b7bd26463b pip install -e .
 vllm serve nvidia/diffusiongemma-26B-A4B-it-NVFP4 --served-model-name dgemma \
   --diffusion-config '{"canvas_length": 64}' --max-logprobs 32 --enable-prefix-caching \
   --async-scheduling --attention-backend TRITON_ATTN \
@@ -306,12 +307,15 @@ The server reads its settings from the environment.
 
 - vllm-project/vllm#57250 has not merged yet. The request fields it uses (`vllm_xargs`) are
   provisional, so this project pins a commit
-  ([`razorback16/vllm` branch `structured-reads-54309`](https://github.com/razorback16/vllm/tree/structured-reads-54309)).
+  ([`razorback16/vllm` branch `structured-reads-57250-rebased`](https://github.com/razorback16/vllm/tree/structured-reads-57250-rebased)).
   That branch is the PR's head plus three fixes that keep vLLM's engine from crashing:
   - vllm-project/vllm#54309, for any request with an image (vllm-project/vllm#56712).
   - The sampler step fell back to eager code with a dtype mismatch once torch.compile hit its
     recompile limit. This broke multi-step reads and text generation.
   - Logprobs stashed at different steps could not join when reads and generations shared a batch.
+
+  The branch also carries vllm-project/vllm#57416, which merged upstream after the PR's base.
+  Without it, a prefill-only batch gets the wrong number of logit rows.
 - Answer quality is the quality of DiffusionGemma 26B-A4B used in this mode. Evaluate it on your
   own tasks before you rely on it.
 

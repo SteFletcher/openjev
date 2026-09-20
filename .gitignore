@@ -9,3 +9,6 @@ __pycache__/
 # agent skills and local agent config, not part of the server
 .agents/
 .claude/
+
+# agent skill pins, not part of the server
+skills-lock.json
