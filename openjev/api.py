@@ -160,7 +160,7 @@ def create_app(settings=None, tokenizer=None):
         await app.state.engine.close()
         await app.state.generator.close()
 
-    app = FastAPI(title="OpenJev", version="0.2.0", lifespan=lifespan)
+    app = FastAPI(title="OpenJev", version="0.2.1", lifespan=lifespan)
 
     @app.exception_handler(RequestValidationError)
     async def invalid_body(request: Request, exc: RequestValidationError):

@@ -3,7 +3,7 @@
 services:
   openjev:
     build: {context: ., dockerfile: docker/Dockerfile}
-    image: razorback16/openjev:0.2.0
+    image: razorback16/openjev:0.2.1
     environment:
       OPENJEV_CANVAS: "64"
       OPENJEV_MAX_NUM_SEQS: ${OPENJEV_MAX_NUM_SEQS:-64}
