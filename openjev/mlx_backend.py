@@ -6,9 +6,15 @@ read-only step reports. mlx, mlx_vlm and PIL are imported lazily so the vLLM
 path never needs them.
 
 Images go through the processor's chat template and prefill as pixel values;
-the decoder pass is the same either way. Not supported yet: think, more than
-one denoise step, text generation. Requesting one of these gets a 400 (or 501),
-not a wrong answer.
+the decoder pass is the same either way.
+
+Text generation (a thought before a read, and /v1/chat/completions) runs
+mlx_vlm's own stream_diffusion_generate rather than a denoise loop of our own:
+canvas sizing, self-conditioning and the confidence-threshold unmasking
+schedule are the model's published generation policy, and reimplementing them
+would only be a slower way to disagree with the checkpoint. It also detokenizes,
+which is why dropping the thought-channel markers is asked of it rather than
+done to the text it hands back.
 """
 import asyncio
 import base64
@@ -103,16 +109,33 @@ class MlxRuntime:
             self.prefills.move_to_end(key)
         return cache, n
 
-    def read(self, prompt, canvas, slots, max_tokens):
+    def read(self, prompt, canvas, slots, max_tokens, steps=1):
         """(logprobs at each slot, prompt tokens). The logprobs are {token id:
         logprob} for the top-k tokens and every label. The token count is the
-        expanded prompt, image tokens included. Runs on the runtime's thread."""
+        expanded prompt, image tokens included. Runs on the runtime's thread.
+
+        ``steps`` denoise passes share one prefill and one mask mapping, so more
+        steps cost GPU time but not prompt tokens. Between passes only the slot
+        positions are written back: vLLM pins the rest of the canvas through
+        diffusion_pinned, and here the template simply is never overwritten, so
+        it cannot drift. The logprobs returned are the last pass's."""
         mx = self.mx
         cache, n = self._prefill(prompt, max_tokens)
         ids = mx.array([canvas])
         masks = self.model.diffusion_decoder_masks(ids, cache, None)
-        logits = self.model.diffusion_decoder_logits(ids, cache=cache, self_conditioning=None,
-                                                     decoder_attention_mask=masks)
+        pos = mx.array([s["pos"] for s in slots])
+        sc, sc_ctx = None, None
+        for step in range(steps):
+            logits = self.model.diffusion_decoder_logits(ids, cache=cache, self_conditioning=sc,
+                                                         decoder_attention_mask=masks)
+            if step + 1 == steps:
+                break
+            # argmax over the slot rows alone; the other ~85% of the canvas is pinned
+            ids[0, pos] = mx.argmax(logits[0, pos], axis=-1).astype(ids.dtype)
+            if sc_ctx is None:
+                sc_ctx = self.model.diffusion_prepare_self_conditioning()
+            sc = self.model.diffusion_self_conditioning(logits, sc_ctx)
+            mx.eval(ids, sc)
         out = []
         for s in slots:
             row = logits[0, s["pos"]].astype(mx.float32)
@@ -120,6 +143,55 @@ class MlxRuntime:
             keep = sorted(set(mx.argpartition(-lp, TOPK)[:TOPK].tolist()) | set(s["label_ids"]))
             out.append(dict(zip(keep, lp[mx.array(keep)].tolist())))
         return out, n
+
+    def generate(self, prompt, max_tokens, stop_ids, emit, skip_special=None):
+        """Greedy generation from ``prompt`` token ids. ``emit(text, token)`` is
+        called per token and returns False to stop early (a disconnected client);
+        ``stop_ids`` end the reply in addition to the model's own EOS. Returns
+        (generated token ids, prompt tokens, finish reason). Runs on the runtime's
+        thread and holds it for the whole reply.
+
+        ``skip_special`` are token ids to leave out of the text. A chat reply passes
+        the thought-channel markers, because the model opens a channel of its own
+        accord on some replies even though the prompt already seeds an empty one,
+        and the caller asked for the reply, not the markers. They cannot be filtered
+        here: the detokenizer buffers them and flushes them fused into a later
+        token's text, so they never arrive as a result of their own. It drops them
+        before they enter that buffer, which is why the skipping is its job.
+        ``think`` passes nothing, because a thought is exactly what it wants."""
+        from mlx_vlm.generate.diffusion import stream_diffusion_generate
+
+        tok = getattr(self.processor, "tokenizer", self.processor)
+        crit = tok.stopping_criteria
+        # the criteria object lives on the shared processor, so the extra stops are
+        # scoped to this call; only one generation runs on this thread at a time
+        saved = list(crit.eos_token_ids)
+        crit.eos_token_ids = saved + [i for i in (stop_ids or ()) if i not in saved]
+        ids, finish = [], "length"
+        stream = stream_diffusion_generate(
+            self.model, self.processor, tok, self.mx.array([prompt]), None, None,
+            max_tokens=max_tokens, skip_special_token_ids=list(skip_special or ()),
+            temperature=0.0)
+        try:
+            for r in stream:
+                if r.is_draft or r.diffusion_block_complete:
+                    continue
+                if r.finish_reason is not None:
+                    # the terminal result carries the detokenizer's last buffered
+                    # segment, which no earlier result emitted; its token is the
+                    # stop token, so the text is kept and the id is not
+                    finish = r.finish_reason
+                    if r.text:
+                        emit(r.text, None)
+                    break
+                ids.append(int(r.token))
+                if not emit(r.text, int(r.token)):
+                    finish = "cancelled"
+                    break
+        finally:
+            stream.close()
+            crit.eos_token_ids = saved
+        return ids, len(prompt), finish
 
 
 class MlxEngine(Engine):
@@ -131,12 +203,21 @@ class MlxEngine(Engine):
         await super().close()
         self.runtime.close()
 
-    async def decide(self, questions, state, seed, images=None, options=None):
-        opts = options or {}
-        for field, asked in (("think", opts.get("think")), ("steps", (opts.get("steps") or 1) > 1)):
-            if asked:
-                raise SchemaError(f"{field} is not supported on the MLX backend yet", ("body", field))
-        return await super().decide(questions, state, seed, images, options)
+    async def think(self, sys_text, state_text, budget):
+        """Engine.think on MLX: same (prefix ids, thought tokens, prompt
+        tokens) contract, so read_group and _sequential are unchanged. The
+        thought pass reads the whole input, which is what gets billed here;
+        the read after it bills the input plus the thought separately."""
+        prompt = self.chat_prompt_ids(sys_text, state_text, thinking=True) + self.thought_open
+        if len(prompt) > self.s.mlx_max_prompt:
+            raise SchemaError(f"the request is {len(prompt)} tokens; the limit is {self.s.mlx_max_prompt}")
+        async with self.slots:
+            ids, billed, _ = await asyncio.get_running_loop().run_in_executor(
+                self.runtime.pool, self.runtime.generate, prompt, budget, self.thought_close,
+                lambda text, token: True)
+        if self.thought_close[0] in ids:
+            ids = ids[: ids.index(self.thought_close[0])]
+        return prompt + ids + self.thought_close, len(ids), billed
 
     async def one_read(self, template, slots, sys_text, content, seed, steps=1, prefix=None):
         if isinstance(content, list):
@@ -150,5 +231,5 @@ class MlxEngine(Engine):
         canvas = self.build_canvas(template, slots, seed)
         async with self.slots:
             tops, billed = await asyncio.get_running_loop().run_in_executor(
-                self.runtime.pool, self.runtime.read, prompt, canvas, slots, self.s.mlx_max_prompt)
+                self.runtime.pool, self.runtime.read, prompt, canvas, slots, self.s.mlx_max_prompt, steps)
         return [slot_distribution(top, s["label_ids"]) for top, s in zip(tops, slots)], billed

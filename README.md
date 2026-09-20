@@ -11,7 +11,7 @@ OpenJev speaks the same wire API as TypeSafe's
 against it unchanged. It runs
 [DiffusionGemma 26B-A4B](https://huggingface.co/nvidia/diffusiongemma-26B-A4B-it-NVFP4)
 (Apache-2.0) two ways: through vLLM on an NVIDIA GPU, or in-process through MLX on Apple
-silicon. The vLLM backend also serves text generation on an OpenAI-compatible
+silicon. Both backends also serve text generation on an OpenAI-compatible
 `/v1/chat/completions`, at no extra GPU memory.
 
 > **Hosted for free on [Codiv](https://codiv.ai)**, an inference platform for open System One
@@ -121,7 +121,8 @@ request gets a 400.
 
 `POST /v1/chat/completions` generates text with the same DiffusionGemma, OpenAI style. Tools
 that talk to a chat model can point their base URL at OpenJev. Use model `diffusiongemma-26b`.
-This endpoint needs the vLLM backend. The MLX backend answers 501.
+Both backends serve it, streaming and not, and a client cannot tell them apart except where
+this section says so.
 
 vLLM refuses some fields for diffusion models, so OpenJev adjusts requests instead of failing
 them:
@@ -135,8 +136,16 @@ them:
 - `stream: true` streams server-sent events and always ends with a usage chunk.
 - The endpoint supports tools (`tools`, `tool_choice`).
 
+On MLX, three of these differ. `tools`, `tool_choice`, `logprobs` and `top_logprobs` are
+accepted and ignored, not answered. A `stop` string that is more than one token is dropped,
+because only a single token can end a denoised block. And there is no `message.reasoning`: the
+model's thought channel is stripped from the reply, so `enable_thinking` changes the answer but
+does not return the thought.
+
 Generation denoises the output in 64-token blocks, so it costs far more GPU time than a System
-One read. At most 8 generations run at once, so they never crowd out reads.
+One read. At most 8 generations run at once, so they never crowd out reads. On MLX the model
+runs on one thread, so generations queue rather than overlap, and a client that disconnects
+stops the reply at the next block instead of the next token.
 
 ```python
 from openai import OpenAI
@@ -197,8 +206,9 @@ Two backends serve the same `/v1/systemone`. Pick by hardware:
 | Setup | Docker image | `pip install -e '.[mlx]'` |
 | Reads | up to 64 in flight | one at a time |
 | `images` | yes | yes |
-| `think`, `steps` > 1 | yes | not yet (400) |
-| Text generation | yes | not yet (501) |
+| `steps` > 1 | yes | yes |
+| `think` | yes | yes |
+| Text generation | yes | yes, streaming included |
 
 ### NVIDIA GPU
 
@@ -265,8 +275,10 @@ OPENJEV_BACKEND=mlx python -m openjev     # 127.0.0.1:8080
 ```
 
 `/v1/systemone` answers reads with the same prompts, canvases and seeds as the vLLM backend,
-including `images`, `samples`, `sequential` and the automatic re-reads. The MLX backend does not
-support `think` and `steps` above 1 yet. Such a request gets a 400. Text generation answers 501.
+including `images`, `samples`, `sequential`, `steps` and the automatic re-reads. Each denoise
+step past the first reuses the one prefill of the prompt and writes back only the answer slots,
+so the template cannot drift: more steps cost GPU time, not prompt tokens. `think` writes the
+thought with mlx-vlm's own denoise loop, then reads after it, and bills exactly as vLLM does.
 
 An image read builds its prompt with the mlx-vlm processor, which expands each image into its
 soft tokens. `usage.input_tokens` and `OPENJEV_MLX_MAX_PROMPT` both count that expanded prompt.
