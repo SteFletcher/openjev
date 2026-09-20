@@ -18,8 +18,8 @@ from starlette.background import BackgroundTask
 
 from .config import GEN_MODEL
 
-# Fields passed through to vLLM; everything else (temperature, seed, min_p,
-# logit_bias, penalties, reasoning switches, response_format, n, ...) is dropped.
+# everything else -- temperature, seed, min_p, logit_bias, penalties, reasoning
+# switches, response_format, n, ... -- is dropped, per the module docstring above.
 PASSTHROUGH = {"messages", "max_tokens", "stop", "top_p", "top_k", "stream", "stream_options",
                "tools", "tool_choice", "logprobs", "top_logprobs", "chat_template_kwargs"}
 DEFAULT_MAX_TOKENS = 1024
@@ -36,7 +36,7 @@ class Generator:
         self.s = settings
         self.client = httpx.AsyncClient(base_url=settings.upstream.rstrip("/"),
                                         timeout=httpx.Timeout(300.0, connect=5.0))
-        # requests generating at once; the rest wait, up to gen_max_queue
+        # callers past gen_max_inflight wait here, up to gen_max_queue of them (see chat_completions).
         self.slots = asyncio.Semaphore(settings.gen_max_inflight)
         self.running = 0
 
