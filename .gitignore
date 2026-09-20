@@ -12,3 +12,4 @@ __pycache__/
 
 # agent skill pins, not part of the server
 skills-lock.json
+uv.lock
