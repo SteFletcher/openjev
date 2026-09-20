@@ -2,7 +2,6 @@
 import json as _json
 import math
 
-import msgspec
 import pytest
 from fastapi.testclient import TestClient
 from transformers import AutoTokenizer
@@ -79,12 +78,12 @@ def test_many_questions_chunk(tok):
 
 
 def test_quickstart_decodes_with_typesafe_sdk(client):
-    from typesafe_sdk._core.response_types import _RESPONSE_DECODER
+    from typesafe_sdk import SystemOneResponse
 
     r = client.post("/v1/systemone", json=EXAMPLE)
     assert r.status_code == 200, r.text
     assert r.headers["x-typesafe-request-id"].startswith("req_")
-    body = _RESPONSE_DECODER.decode(r.content)  # the SDK's strict decoder
+    body = SystemOneResponse.model_validate_json(r.content)
     assert body.answers["department"].choice == "billing"
     assert set(body.answers["department"].probabilities) == {"billing", "technical", "sales"}
     assert body.answers["frustration"].legend[0] == "Calm, just stating facts"
@@ -133,11 +132,11 @@ def test_confidence():
 
 
 def test_answer_shapes_roundtrip():
-    from typesafe_sdk._core.response_types import ScoreAnswer
+    from typesafe_sdk import ScoreAnswer
 
     q = {"type": "score", "choices": [("0", "a"), ("1", "b")], "legend": ["a", {"k": 1}]}
     a = to_answer(q, [0.25, 0.75])
-    decoded = msgspec.json.decode(msgspec.json.encode(a), type=ScoreAnswer)
+    decoded = ScoreAnswer.model_validate_json(_json.dumps(a))
     assert decoded.score == 0.75 and decoded.legend[1] == {"k": 1}
 
 
