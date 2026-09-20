@@ -36,7 +36,6 @@ class Generator:
         self.s = settings
         self.client = httpx.AsyncClient(base_url=settings.upstream.rstrip("/"),
                                         timeout=httpx.Timeout(300.0, connect=5.0))
-        # callers past gen_max_inflight wait here, up to gen_max_queue of them (see chat_completions).
         self.slots = asyncio.Semaphore(settings.gen_max_inflight)
         self.running = 0
 

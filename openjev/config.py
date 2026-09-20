@@ -23,10 +23,8 @@ class Settings:
     # OPENJEV_ORIGIN_SECRET: a front proxy sends it as X-Origin-Secret.
     api_key: str = field(default_factory=lambda: _env("OPENJEV_API_KEY", ""))
     origin_secret: str = field(default_factory=lambda: _env("OPENJEV_ORIGIN_SECRET", ""))
-    # Re-read policy: one read, and up to auto_max when any slot is uncertain.
     auto_threshold: float = field(default_factory=lambda: float(_env("OPENJEV_AUTO_THRESHOLD", "0.1")))
     auto_max: int = field(default_factory=lambda: int(_env("OPENJEV_AUTO_MAX", "4")))
-    # Extends Jev's contract: images accompanying the state.
     max_images: int = field(default_factory=lambda: int(_env("OPENJEV_MAX_IMAGES", "8")))
     max_image_bytes: int = field(default_factory=lambda: int(_env("OPENJEV_MAX_IMAGE_BYTES", str(5 * 1024 * 1024))))
     # Kept small: generation denoises many blocks and must not crowd out System One reads.

@@ -1,14 +1,12 @@
 """Structured reads on Apple silicon: DiffusionGemma in-process through MLX.
 
-Selected with OPENJEV_BACKEND=mlx. Everything up to the read is the Engine's:
-schema, template, slots and the seeded canvas. A read is then the prompt's
-prefill, one decoder pass over the canvas with no self-conditioning, and a
-temperature-1 log-softmax at each slot, which is what vLLM's read-only step
-reports. mlx and mlx_vlm are imported only when a runtime is built, so the
-vLLM path never needs them.
+Selected with OPENJEV_BACKEND=mlx. The read (prefill, one decoder pass, no
+self-conditioning, temperature-1 log-softmax per slot) matches what vLLM's
+read-only step reports. mlx and mlx_vlm are imported lazily so the vLLM path
+never needs them.
 
-Not on this backend yet: images, think, more than one denoise step, and text
-generation. A request for one gets a 400 (or a 501) instead of a wrong answer.
+Not supported yet: images, think, more than one denoise step, text
+generation. Requesting one of these gets a 400 (or 501), not a wrong answer.
 """
 import asyncio
 from collections import OrderedDict
@@ -16,8 +14,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 from .engine import TOPK, Engine, SchemaError, slot_distribution
 
-# Re-reads and samples repeat a prompt exactly, so its prefill is kept. The budget is in
-# tokens, not entries, so a few long prompts cannot pin memory.
+# Re-reads and samples repeat a prompt exactly, so its prefill is cached, evicted by a
+# token budget (not entry count) so a few long prompts can't pin memory.
 PROMPT_CACHE_TOKENS = 16384
 
 
@@ -46,6 +44,8 @@ class MlxRuntime:
         if cache is None:
             cache = self.model.diffusion_prefill_cache(self.mx.array([prompt]))
             self.prefills[key] = cache
+            # sums the keys (prompt-token tuples), not the cache objects: budget is in
+            # tokens, so don't "fix" this to .values().
             while len(self.prefills) > 1 and sum(map(len, self.prefills)) > PROMPT_CACHE_TOKENS:
                 self.prefills.popitem(last=False)
         else:

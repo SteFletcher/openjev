@@ -65,7 +65,6 @@ async def warm(engine, gen):
         return engine.decide(questions(n), STATE, seed, images=opts.pop("images", None), options=opts)
 
     rounds = [
-        # one request at a time: batch-of-one graphs, narrow and full-width tiles
         ("single reads", lambda: [read(1, 1)]),
         ("", lambda: [read(12, 2)]),
         ("", lambda: [read(2, 3, steps=2)]),
@@ -75,7 +74,6 @@ async def warm(engine, gen):
         ("think", lambda: [read(1, 7, think=32)]),
         ("generation", lambda: [chat(gen, max_tokens=64)]),
         ("", lambda: [chat(gen, max_tokens=64, stream=True, logprobs=True, top_logprobs=5)]),
-        # several at once: batched graphs, mixed widths, reads beside generation
         ("mixed batch", lambda: [read(1, 11), read(3, 12), read(12, 13, steps=2), read(20, 14),
                                  read(2, 15, samples=4), chat(gen, max_tokens=128),
                                  chat(gen, max_tokens=64, logprobs=True, top_logprobs=5)]

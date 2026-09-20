@@ -66,7 +66,6 @@ class SystemOneRequest(BaseModel):
     state: JSONContent
     model: str
     questions: dict[str, Question] = Field(min_length=1)
-    # OpenJev extensions; each is optional and off by default.
     images: list[Union[str, ImageObject]] | None = None
     steps: int | None = Field(default=None, ge=1, le=8)
     samples: int | None = Field(default=None, ge=1, le=32)
@@ -115,7 +114,6 @@ def log_invalid(request, parts, status=422):
     log.warning("%s %s %s", status, getattr(request.state, "request_id", "-"), "; ".join(parts) or "invalid request")
 
 
-# depth and width a rejected value is echoed to, so encoding it can't run away
 TRIM_DEPTH, TRIM_ITEMS, TRIM_CHARS = 4, 20, 500
 
 
@@ -236,7 +234,7 @@ def create_app(settings=None, tokenizer=None):
         return {"model": MODEL_VERSION, "answers": answers,
                 "usage": {"input_tokens": input_tokens, "output_tokens": thought_tokens}}
 
-    if mlx:  # the MLX backend answers reads only
+    if mlx:
         @app.post("/v1/chat/completions")
         async def chat_completions():
             return oai_error(501, "Text generation is not available on the MLX backend.", "api_error")

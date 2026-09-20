@@ -81,10 +81,6 @@ class Engine:
     def enc(self, text):
         return self.tok.encode(text, add_special_tokens=False)
 
-    # ------------------------------------------------------------------
-    # Labels and templates
-    # ------------------------------------------------------------------
-
     def _single_token_labels(self):
         """Choice labels that stay one token after "q1: ", in a stable order."""
         base = self.enc("q1: A")
@@ -129,19 +125,18 @@ class Engine:
                 crit = q["criteria"]
                 if len(crit) > 10:
                     raise SchemaError("Too many score levels. Must have at most 10 levels.", loc)
-                if len(crit) == 1:  # one level, one possible score, as on Jev
+                if len(crit) == 1:
                     forced[qid] = {"type": "score", "score": 0.0, "legend": {"0": crit[0]},
                                    "probabilities": {"0": 1.0}, "confidence": 1.0}
                     continue
                 choices = [(str(i), text_of(c)) for i, c in enumerate(crit)]
                 labels = [str(i) for i in range(len(crit))]
-            else:  # the request model rejects this first
+            else:
                 raise SchemaError(f"unknown question type {kind!r}", ("body", "questions", qid, "type"))
             qs.append({"key": qid, "id": f"q{i + 1}", "type": kind, "instructions": text_of(q.get("instructions")),
                        "choices": choices, "labels": labels,
-                       # score legends echo the criteria exactly as sent
                        "legend": list(q["criteria"]) if kind == "score" else None})
-        for i, q in enumerate(qs):  # the model sees q1, q2, ... with the forced ones left out
+        for i, q in enumerate(qs):
             q["id"] = f"q{i + 1}"
         return {"questions": qs, "forced": forced, "format": "lines" if len(qs) <= 10 else "indexed"}
 
@@ -216,10 +211,6 @@ class Engine:
                 group = trial
         out.append(group)
         return out
-
-    # ------------------------------------------------------------------
-    # Reads
-    # ------------------------------------------------------------------
 
     def canvas_width(self, template):
         need = len(template) + 1
@@ -349,7 +340,7 @@ class Engine:
             state_text = state if isinstance(state, str) else json.dumps(state, ensure_ascii=False)
             content = list(images) + [{"type": "text", "text": state_text}] if images else state_text
             groups = self.groups(schema["questions"], fmt) if schema["questions"] else []
-            if not groups:  # every question was answered without a read
+            if not groups:
                 results = []
             elif opts["sequential"] and len(groups) > 1:
                 results = await self._sequential(groups, fmt, schema["questions"], state_text, seed, opts)
@@ -366,7 +357,7 @@ class Engine:
             thought += group_thought
             for q, mean in zip(g, means):
                 answers[q["key"]] = to_answer(q, mean)
-        answers = {k: answers[k] for k in questions}  # answered in the order asked
+        answers = {k: answers[k] for k in questions}
         return answers, billed, thought
 
     async def _sequential(self, groups, fmt, all_qs, state_text, seed, opts):
