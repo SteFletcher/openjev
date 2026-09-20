@@ -12,4 +12,6 @@ __pycache__/
 
 # agent skill pins, not part of the server
 skills-lock.json
+
+# a library does not pin a resolved environment
 uv.lock
