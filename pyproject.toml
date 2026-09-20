@@ -9,6 +9,8 @@ dependencies = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "httpx>=0.27", "tra
 
 [project.optional-dependencies]
 test = ["pytest", "typesafe-sdk>=0.6", "msgspec"]
+# Apple silicon: the in-process MLX backend (OPENJEV_BACKEND=mlx)
+mlx = ["mlx-vlm==0.6.15; sys_platform == 'darwin' and platform_machine == 'arm64'"]
 
 [project.urls]
 Homepage = "https://codiv.ai"
