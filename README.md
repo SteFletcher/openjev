@@ -230,7 +230,7 @@ Or without compose:
 
 ```bash
 docker run -d --gpus all --ipc=host -p 127.0.0.1:8080:8080 \
-  -v ~/.cache/huggingface:/root/.cache/huggingface razorback16/openjev:0.2.1
+  -v ~/.cache/huggingface:/root/.cache/huggingface razorback16/openjev:0.3.0
 ```
 
 The model weights (about 18 GB) download on first start into `~/.cache/huggingface`. Use

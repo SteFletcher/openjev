@@ -22,6 +22,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from . import __version__
 from .chat import Generator, MlxGenerator, add_chat_routes
 from .config import MODEL_ALIASES, MODEL_VERSION, MODELS, Settings
 from .engine import Engine, Overloaded, SchemaError, Upstream
@@ -164,7 +165,7 @@ def create_app(settings=None, tokenizer=None):
         await app.state.engine.close()
         await app.state.generator.close()
 
-    app = FastAPI(title="OpenJev", version="0.2.1", lifespan=lifespan)
+    app = FastAPI(title="OpenJev", version=__version__, lifespan=lifespan)
 
     @app.exception_handler(RequestValidationError)
     async def invalid_body(request: Request, exc: RequestValidationError):
