@@ -1,0 +1,8 @@
+2026-09-22T09:14:03Z INFO  checkout   order=48213 status=paid amount=42.10 GBP
+2026-09-22T09:14:07Z WARN  auth       failed login for user=j.patel@acme-retail.co.uk from 81.2.69.160
+2026-09-22T09:15:12Z ERROR support    ticket=7731 note="Customer Margaret O'Neill says the parcel for 14 Harbour Row, Whitby went to a neighbour"
+2026-09-22T09:15:40Z INFO  claims     claim=C-2291 notes="claimant reports type 2 diabetes, requests a reasonable adjustment"
+2026-09-22T09:16:02Z DEBUG payments   gateway response {"card":"4111 1111 1111 1111","exp":"12/28"}
+2026-09-22T09:16:30Z DEBUG deploy     env loaded AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+2026-09-22T09:17:11Z INFO  search     query="rash on arm after new medication" session=ab12
+2026-09-22T09:17:15Z INFO  health     /ready ok latency_ms=12

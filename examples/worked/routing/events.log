@@ -1,0 +1,6 @@
+INFO  healthcheck /ready 200 latency_ms=11
+WARN  db-replica-2 disk usage 91% on /var/lib/postgresql, growing 2%/hour
+ERROR payment-svc java.lang.NullPointerException at RefundHandler.java:88 (RefundHandler.apply <- RefundController.post); 212 occurrences in 10 min since 09:02
+ERROR cron nightly-export exited with code 137 after 41 min
+ERROR checkout p99 latency 4.2s (SLO 800ms); inventory-svc upstream timeouts; redis evictions spiking; pricing-svc deployed 08:55; 3 pods OOMKilled in cart-svc
+CRITICAL auth 3,000 successful logins from a new ASN in 5 min for admin accounts; MFA bypass flag set on 12 users

@@ -60,7 +60,8 @@ curl https://api.codiv.ai/v1/systemone \
 [`examples/`](examples/) has three runnable graphs where System One reads sit on the edges:
 LLM evals with a judge that sends unsure cases to a person, personal data in logs that
 regexes miss, and routing each log event to the cheapest model that can handle it. They use
-only the standard library and run offline with `--mock`. The write-up is at
+only the standard library and run offline with `--mock`. [`examples/worked/`](examples/worked/) shows
+how each would be built for real, with TypeSafe's SDK, LangGraph and Claude. The write-up is at
 <https://stefletcher.github.io/openjev/>.
 
 ## API

@@ -142,6 +142,31 @@ figcaption { font-size: 14px; color: var(--text-3); margin-top: 8px; }
 
 footer { margin: 72px 0 0; padding: 24px 0 48px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--text-3); }
 .theme-toggle { position: fixed; top: 12px; right: 12px; font: 13px Inter, system-ui, sans-serif; background: var(--surface); color: var(--text-2); border: 1px solid var(--rule); border-radius: 999px; padding: 5px 11px; cursor: pointer; }
+
+/* code blocks */
+:root { --tok-kw: #8a3ffc; --tok-str: #0f7b3f; --tok-com: #75736e; --tok-num: #b35a00; --tok-fn: #1f63b8; --tok-attr: #a3386b; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --tok-kw: #c3a5ff; --tok-str: #8fd6a6; --tok-com: #8d8c84; --tok-num: #f2b36d; --tok-fn: #7fb2f0; --tok-attr: #f09ac0; } }
+:root[data-theme="dark"] { --tok-kw: #c3a5ff; --tok-str: #8fd6a6; --tok-com: #8d8c84; --tok-num: #f2b36d; --tok-fn: #7fb2f0; --tok-attr: #f09ac0; }
+.code { border: 1px solid var(--rule); border-radius: 10px; margin: 0 0 18px; overflow: hidden; background: var(--code-bg); }
+.code-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 8px 6px 14px; background: var(--surface-2); border-bottom: 1px solid var(--rule); font: 12.5px "JetBrains Mono", ui-monospace, monospace; color: var(--text-2); }
+.code-head a, .code-head span { color: var(--text-2); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.code-head a:hover { color: var(--link); text-decoration: underline; }
+.code pre { margin: 0; border-radius: 0; max-height: 560px; overflow: auto; }
+.copy, .dia-tools button { flex: none; font: 600 12px Inter, system-ui, sans-serif; color: var(--text); background: var(--bg); border: 1px solid var(--rule); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+.copy:hover, .dia-tools button:hover { border-color: var(--text-3); }
+.copy.done, .dia-tools button.done { color: var(--bg); background: var(--text); border-color: var(--text); }
+.hljs-keyword, .hljs-built_in, .hljs-literal { color: var(--tok-kw); }
+.hljs-string, .hljs-regexp { color: var(--tok-str); }
+.hljs-comment { color: var(--tok-com); font-style: italic; }
+.hljs-number { color: var(--tok-num); }
+.hljs-title, .hljs-title.function_, .hljs-title.class_ { color: var(--tok-fn); }
+.hljs-attr, .hljs-meta, .hljs-variable { color: var(--tok-attr); }
+.step { display: flex; gap: 10px; align-items: baseline; margin: 22px 0 10px; }
+.step-n { flex: none; display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--s1); color: #fff; font: 700 13px Inter, system-ui, sans-serif; transform: translateY(-1px); }
+h4 { font-size: 16px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-2); margin: 30px 0 4px; }
+/* diagram toolbar */
+.dia-tools { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; margin: 0 0 8px; }
+.dia-tools .label { font-size: 12px; color: var(--text-3); margin-right: auto; align-self: center; }
 </style>
 </head>
 <body>
@@ -259,8 +284,8 @@ footer { margin: 72px 0 0; padding: 24px 0 48px; border-top: 1px solid var(--rul
 </table></div>
 <p class="small muted">* These are my own estimates from the parameter count (25.2B × 1 or 2 bytes, plus overhead), not published figures. The other numbers come from the <a href="https://github.com/razorback16/openjev#run-your-own">OpenJev README</a>.</p>
 <p>On a Mac it really is two commands:</p>
-<pre><code>pip install -e '.[mlx]'
-OPENJEV_BACKEND=mlx python -m openjev     # http://127.0.0.1:8080</code></pre>
+<div class="code"><div class="code-head"><span>terminal</span><button class="copy" type="button">Copy</button></div><pre><code class="language-bash">pip install -e '.[mlx]'
+OPENJEV_BACKEND=mlx python -m openjev     # http://127.0.0.1:8080</code></pre></div>
 <p>On an NVIDIA box, <code>docker compose up -d</code> pulls a prebuilt image with the patched vLLM. Either way the first start downloads the weights into <code>~/.cache/huggingface</code>, and after that nothing leaves the machine. For regulated data that matters as much as the price does.</p>
 <h3 id="min-spec">Minimum spec for my demo</h3>
 <p>My own demo is a small, dependency-free Python project. It has four scripts, one for each primitive plus a triage pipeline that combines all three, and a script that starts OpenJev on a Mac with the 4-bit MLX weights. This is what you need to run it against the real model:</p>
@@ -339,6 +364,24 @@ OPENJEV_BACKEND=mlx python -m openjev     # http://127.0.0.1:8080</code></pre>
 </ul>
 <figure>
   <div class="diagram">
+    <script type="text/plain" class="mermaid-src">
+flowchart TD
+  ev(["Pipeline event<br/>PR opened · build finished"]) --> tri["System 1 · triage read<br/>risk · team · breaking change? · PII?"]
+  tri -->|"low risk, P ≥ 0.9"| auto["Auto-approve<br/>log the distribution"]
+  tri -->|high risk| agent["System 2 agent<br/>review · explain · fix"]
+  tri -->|low confidence| human["Human reviewer"]
+  agent --> ver["System 1 · verify read<br/>fix addresses the finding? done?"]
+  ver -->|no| agent
+  ver -->|yes| gate["System 1 · deploy gate<br/>go / no-go on canary, P ≥ 0.99"]
+  auto --> gate
+  gate --> canary["Canary → progressive rollout"]
+  canary --> rb["System 1 · rollback read<br/>every minute, on live signals"]
+  rb -->|uncertain| page["Page on-call"]
+  classDef s1 fill:#fdeee7,stroke:#eb6834,stroke-width:2px,color:#16161a
+  classDef s2 fill:#e8f1fb,stroke:#2a78d6,stroke-width:2px,color:#16161a
+  class tri,ver,gate,rb s1
+  class agent s2
+</script>
     <svg viewBox="0 0 440 760" role="img" aria-labelledby="gTitle gDesc">
       <title id="gTitle">A CI/CD agent graph with System 1 reads on the edges</title>
       <desc id="gDesc">A pipeline event goes to a System 1 triage read. Confident low-risk changes are auto-approved, high-risk changes go to a System 2 review agent, and low-confidence items go to a human. The agent's output is checked by a System 1 verify read, which loops back if not done, then a System 1 deploy gate, canary rollout, and a System 1 rollback read.</desc>
@@ -433,21 +476,62 @@ OPENJEV_BACKEND=mlx python -m openjev     # http://127.0.0.1:8080</code></pre>
 
 <!-- ============================================================ -->
 <h2 id="enterprise">Three enterprise problems, worked through</h2>
-<p>The CI/CD table above is the broad picture. These are the three problems I'd pick first in most organisations, because each one is currently either expensive, leaky or done on a sample. For each I've written a small runnable graph in the repo's <a href="https://github.com/SteFletcher/openjev/tree/main/examples"><code>examples/</code></a> folder. It uses only the standard library and runs offline with <code>--mock</code>, so you can see the flow before you download a model.</p>
+<p>The CI/CD table above is the broad picture. These are the three problems I'd pick first in most organisations, because each one is currently either expensive, leaky or done on a sample. The code comes at two levels. <a href="https://github.com/SteFletcher/openjev/tree/main/examples"><code>examples/</code></a> has a quick demo of each that uses only the standard library and runs offline with <code>--mock</code>. <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked"><code>examples/worked/</code></a> has the worked implementations shown below. They use TypeSafe's own SDK for the System One reads, <a href="https://langchain-ai.github.io/langgraph/">LangGraph</a> for the graphs and the Anthropic SDK for the Claude calls. Every block has a copy button, and every diagram can be copied as an image, as SVG or as Mermaid.</p>
 <div class="callout blue">
-  <p>The mock answers from keyword hints so the graphs run anywhere, and the tests use it. It says nothing about how accurate the model is. Point the examples at a real OpenJev before you judge the answers, and build a labelled set for each decision before you trust a threshold.</p>
+  <p>The code blocks on this page are copied from the repo by a script, and a test fails if the two drift apart. The repo's tests run every worked example end to end against a fake System One server and a fake Claude. That proves the plumbing, not the model's accuracy. Point the examples at a real OpenJev before you judge the answers, and build a labelled set for each decision before you trust a threshold.</p>
 </div>
 
+<h3 id="ex-setup">Setting up once</h3>
+<p>One client serves all three examples. TypeSafe's SDK talks to OpenJev unchanged, so moving between Jev, hosted OpenJev and OpenJev on your own GPU is one environment variable, not a code change.</p>
+<div class="code"><div class="code-head"><span>terminal</span><button class="copy" type="button">Copy</button></div><pre><code class="language-bash">git clone https://github.com/SteFletcher/openjev &amp;&amp; cd openjev
+pip install -e '.[examples]'          # typesafe-sdk, langgraph, anthropic
+
+# pick a System One backend
+export TYPESAFE_BASE_URL=http://127.0.0.1:8080       # OpenJev on this machine
+# export TYPESAFE_BASE_URL=https://api.codiv.ai      # hosted OpenJev
+# export TYPESAFE_BASE_URL=https://api.typesafe.ai   # Jev
+export TYPESAFE_API_KEY=...          # any value for a local server without auth
+export ANTHROPIC_API_KEY=...         # for the Claude (System 2) nodes</code></pre></div>
+<!-- snippet:s1-client examples/worked/common/s1.py -->
+<div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/common/s1.py">examples/worked/common/s1.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python"># TYPESAFE_BASE_URL  https://api.typesafe.ai  -&gt; Jev
+#                    https://api.codiv.ai     -&gt; hosted OpenJev
+#                    http://127.0.0.1:8080    -&gt; OpenJev on your own hardware (the default)
+# TYPESAFE_API_KEY   the SDK requires one; any value works for a local server without auth
+def client() -&gt; TypeSafeClient:
+    return TypeSafeClient(
+        base_url=os.environ.get("TYPESAFE_BASE_URL", "http://127.0.0.1:8080"),
+        api_key=os.environ.get("TYPESAFE_API_KEY", "local"),
+        model=os.environ.get("TYPESAFE_MODEL", "jev-latest"),  # OpenJev accepts Jev's name as an alias
+    )</code></pre></div>
+<!-- /snippet -->
 <h3 id="ex-evals">1. Evals: a judge that knows when it's unsure</h3>
 <p><strong>How it's done today.</strong> Most teams grade LLM output with another LLM. The judge reads the case, writes a paragraph of reasoning and gives a score out of five. It works, but it takes seconds per case and costs real money, so it runs nightly on a sample. The criteria bleed into each other: an answer that reads well gets marked as faithful too. The score is an integer the model made up, and every so often the JSON doesn't parse.</p>
 <p><strong>With a System One judge</strong> the rubric becomes a set of typed questions, answered in parallel and in isolation against the same case:</p>
-<pre><code>RUBRIC = {
-    "faithful":         noul("Every factual claim in the answer is supported by the context."),
-    "answers_question": noul("The answer directly addresses the user's question."),
-    "personal_data":    noul("The answer discloses personal data about an identifiable individual."),
-    "quality":          score("Overall quality as a reply from an internal policy assistant.",
-                              ["unusable", "poor", "acceptable", "good", "excellent"]),
-}</code></pre>
+<p class="step"><span class="step-n">1</span><span><strong>Write the rubric as questions.</strong> Each criterion is a <code>noul</code> or a <code>score</code> in Jev's wire format, so it works with any client.</span></p>
+<!-- snippet:evals-rubric examples/worked/evals/rubric.py -->
+<div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/evals/rubric.py">examples/worked/evals/rubric.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python">RUBRIC = {
+    "faithful": {
+        "type": "noul",
+        "instructions": "Every factual claim in the answer is supported by the context.",
+        "criteria": {"true": "all claims appear in or follow directly from the context",
+                     "false": "the answer adds, changes or contradicts facts in the context"},
+    },
+    "answers_question": {
+        "type": "noul",
+        "instructions": "The answer directly addresses the user's question.",
+    },
+    "personal_data": {
+        "type": "noul",
+        "instructions": "The answer discloses personal data about an identifiable individual, "
+                        "such as a name together with an email address or phone number.",
+    },
+    "quality": {
+        "type": "score",
+        "instructions": "Overall quality as a reply from an internal policy assistant.",
+        "criteria": ["unusable", "poor", "acceptable", "good", "excellent"],
+    },
+}</code></pre></div>
+<!-- /snippet -->
 <ul>
   <li><strong>No halo effect.</strong> Each criterion is its own read, so "well written" can't lift "faithful".</li>
   <li><strong>A probability, not a grade.</strong> P ≥ 0.8 passes, P ≤ 0.2 fails, and anything in between goes to a person. The unsure queue is where human review time pays off most.</li>
@@ -457,6 +541,20 @@ OPENJEV_BACKEND=mlx python -m openjev     # http://127.0.0.1:8080</code></pre>
 </ul>
 <figure>
   <div class="diagram">
+    <script type="text/plain" class="mermaid-src">
+flowchart TD
+  q(["Staff question + retrieved policy"]) --> gen["System 2 · policy assistant<br/>drafts the answer"]
+  gen --> judge["System 1 · judge<br/>faithful? answers? personal data? quality 0–4"]
+  judge -->|"all P ≥ 0.8"| deliver["Deliver"]
+  judge -->|"fail, first try"| regen["System 2 · regenerate<br/>told what failed"]
+  regen -->|retry| judge
+  judge -->|"unsure, or failed twice"| human["Human review"]
+  judge -.-> log[("Verdict log → offline eval report")]
+  classDef s1 fill:#fdeee7,stroke:#eb6834,stroke-width:2px,color:#16161a
+  classDef s2 fill:#e8f1fb,stroke:#2a78d6,stroke-width:2px,color:#16161a
+  class judge s1
+  class gen,regen s2
+</script>
     <svg viewBox="0 0 440 470" role="img" aria-labelledby="evT evD">
       <title id="evT">An eval judge used as an inline guard</title>
       <desc id="evD">A staff question and retrieved policy go to a System 2 assistant, which drafts an answer. A System 1 judge reads four criteria in parallel. If all pass, the answer is delivered. If it fails the first time, a System 2 regenerate step rewrites it and the judge reads again. Unsure results, or a second failure, go to a human. Every judgement is logged and feeds the offline eval report.</desc>
@@ -498,20 +596,183 @@ OPENJEV_BACKEND=mlx python -m openjev     # http://127.0.0.1:8080</code></pre>
       <text class="ts" x="315" y="440" text-anchor="middle">distributions → offline eval report</text>
     </svg>
   </div>
-  <figcaption><a href="https://github.com/SteFletcher/openjev/blob/main/examples/evals.py"><code>examples/evals.py</code></a>. Part 1 grades a five-case eval set for an internal policy assistant: a good answer, a made-up policy, an unnecessary refusal, an answer that leaks a colleague's email, and a hedged answer that goes to a person. Part 2 runs the same judge as this guard.</figcaption>
+  <figcaption>Demo: <a href="https://github.com/SteFletcher/openjev/blob/main/examples/evals.py"><code>examples/evals.py</code></a>; worked: <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/evals"><code>examples/worked/evals/</code></a>. Part 1 grades a five-case eval set for an internal policy assistant: a good answer, a made-up policy, an unnecessary refusal, an answer that leaks a colleague's email, and a hedged answer that goes to a person. Part 2 runs the same judge as this guard.</figcaption>
 </figure>
+<h4>Implementing it</h4>
+<p class="step"><span class="step-n">2</span><span><strong>Turn probabilities into a verdict.</strong> The thresholds live in your code, where they can be reviewed, not in the model. The reasons go back to the generator if it gets a second try.</span></p>
+<!-- snippet:evals-judge examples/worked/evals/rubric.py -->
+<div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/evals/rubric.py">examples/worked/evals/rubric.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python">PASS_AT, FAIL_AT = 0.8, 0.2   # P &gt;= 0.8 is a yes, P &lt;= 0.2 a no, anything between goes to a person
+
+
+@dataclass(frozen=True)
+class Verdict:
+    outcome: str                  # "pass", "fail" or "human"
+    faithful: float
+    answers_question: float
+    personal_data: float
+    quality: float                # expected level, 0-4
+    reasons: tuple[str, ...]      # fed back to the generator on a retry
+
+    @property
+    def p_good(self):
+        """The weakest link, as one number for calibration checks."""
+        return min(self.faithful, self.answers_question, 1 - self.personal_data)
+
+
+def judge(s1, question, context, answer):
+    r = s1.system_one({"question": question, "context": context, "answer": answer}, RUBRIC)
+    n = {k: a.noul for k, a in r.nouls.items()}
+    checks = {  # every check is phrased so that 1.0 is good
+        "not supported by the context": n["faithful"],
+        "does not answer the question": n["answers_question"],
+        "discloses personal data": 1 - n["personal_data"],
+    }
+    if all(p &gt;= PASS_AT for p in checks.values()):
+        outcome = "pass"
+    elif any(FAIL_AT &lt; p &lt; PASS_AT for p in checks.values()):
+        outcome = "human"
+    else:
+        outcome = "fail"
+    reasons = tuple(f"{why} (P={p:.2f})" for why, p in checks.items() if p &lt; PASS_AT)
+    return Verdict(outcome, n["faithful"], n["answers_question"], n["personal_data"],
+                   r.scores["quality"].score, reasons)</code></pre></div>
+<!-- /snippet -->
+<p class="step"><span class="step-n">3</span><span><strong>Grade the eval set in parallel, and gate on it.</strong> Agreement with the human labels and the Brier score tell you whether the judge can be trusted before you let it block anything.</span></p>
+<!-- snippet:evals-run examples/worked/evals/run_eval.py -->
+<div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/evals/run_eval.py">examples/worked/evals/run_eval.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python">def run(s1, cases, workers=8):
+    with ThreadPoolExecutor(workers) as pool:   # reads are independent, so grade them in parallel
+        verdicts = list(pool.map(lambda c: judge(s1, c["question"], c["context"], c["answer"]), cases))
+    rows = [{"id": c["id"], "label": c.get("label"), **asdict(v)} for c, v in zip(cases, verdicts)]
+
+    decided = [r for r in rows if r["outcome"] != "human" and r["label"]]
+    labelled = [(v.p_good, r["label"] == "pass") for v, r in zip(verdicts, rows) if r["label"]]
+    return {
+        "cases": len(rows),
+        "pass_rate": sum(r["outcome"] == "pass" for r in rows) / len(rows),
+        "to_human": [r["id"] for r in rows if r["outcome"] == "human"],
+        # how often the judge agrees with a person, on the cases it was willing to decide
+        "agreement": sum(r["outcome"] == r["label"] for r in decided) / len(decided) if decided else None,
+        # Brier score of the judge's P(good) against the labels: 0 is perfect, 0.25 is a coin toss
+        "brier": sum((p - y) ** 2 for p, y in labelled) / len(labelled) if labelled else None,
+        "rows": rows,
+    }
+
+
+def gate(report, min_pass, min_agreement):
+    failures = []
+    if report["pass_rate"] &lt; min_pass:
+        failures.append(f"pass rate {report['pass_rate']:.2f} &lt; {min_pass}")
+    if report["agreement"] is not None and report["agreement"] &lt; min_agreement:
+        failures.append(f"judge agreement {report['agreement']:.2f} &lt; {min_agreement}")
+    return failures</code></pre></div>
+<!-- /snippet -->
+<p class="step"><span class="step-n">4</span><span><strong>Put the gate in CI.</strong> A prompt or model change that drops the pass rate, or makes the judge disagree with people, fails the pull request.</span></p>
+<!-- snippet:evals-ci examples/worked/evals/eval-gate.yml -->
+<div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/evals/eval-gate.yml">examples/worked/evals/eval-gate.yml</a><button class="copy" type="button">Copy</button></div><pre><code class="language-yaml">name: eval-gate
+on:
+  pull_request:
+    paths: ["prompts/**", "assistant/**", "evals/**"]
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    env:
+      TYPESAFE_BASE_URL: ${{ vars.TYPESAFE_BASE_URL }}
+      TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install "typesafe-sdk&gt;=0.7"
+      - name: Regenerate answers with the changed prompt
+        run: python evals/generate_answers.py evals/questions.jsonl &gt; evals/dataset.jsonl
+      - name: Judge them, and fail the build below the bar
+        run: python evals/run_eval.py evals/dataset.jsonl --out eval-report.json --min-pass 0.9 --min-agreement 0.85
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: eval-report, path: eval-report.json }</code></pre></div>
+<!-- /snippet -->
+<p class="step"><span class="step-n">5</span><span><strong>Use the same judge inline.</strong> The guard in the diagram above, as a LangGraph <code>StateGraph</code>. The System One read is the conditional edge.</span></p>
+<!-- snippet:evals-guard examples/worked/evals/guard.py -->
+<div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/evals/guard.py">examples/worked/evals/guard.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python">class GuardState(TypedDict, total=False):
+    question: str
+    context: str
+    answer: str
+    attempts: int
+    verdict: object
+    outcome: str
+
+
+def build_guard(s1, claude):
+    def prompt(st, feedback=""):
+        return f"Policy:\n{st['context']}\n\nQuestion: {st['question']}{feedback}"
+
+    def generate(st):
+        return {"answer": claude("sonnet", SYSTEM, prompt(st)).text, "attempts": 1}
+
+    def judge_node(st):
+        return {"verdict": judge(s1, st["question"], st["context"], st["answer"])}
+
+    def regenerate(st):
+        why = "; ".join(st["verdict"].reasons)
+        feedback = f"\n\nA reviewer rejected this draft ({why}):\n{st['answer']}\nWrite a corrected answer."
+        return {"answer": claude("sonnet", SYSTEM, prompt(st, feedback)).text, "attempts": st["attempts"] + 1}
+
+    def after_judge(st):
+        outcome = st["verdict"].outcome
+        if outcome == "pass":
+            return "deliver"
+        if outcome == "fail" and st["attempts"] &lt; MAX_ATTEMPTS:
+            return "regenerate"
+        return "human"
+
+    g = StateGraph(GuardState)
+    g.add_node("generate", generate)
+    g.add_node("judge", judge_node)
+    g.add_node("regenerate", regenerate)
+    g.add_node("deliver", lambda st: {"outcome": "delivered"})
+    g.add_node("human", lambda st: {"outcome": "queued for a person"})
+    g.add_edge(START, "generate")
+    g.add_edge("generate", "judge")
+    g.add_conditional_edges("judge", after_judge, ["deliver", "regenerate", "human"])
+    g.add_edge("regenerate", "judge")
+    g.add_edge("deliver", END)
+    g.add_edge("human", END)
+    return g.compile()</code></pre></div>
+<!-- /snippet -->
+<p class="step"><span class="step-n">6</span><span><strong>Run it.</strong></span></p>
+<div class="code"><div class="code-head"><span>terminal</span><button class="copy" type="button">Copy</button></div><pre><code class="language-bash">python examples/worked/evals/run_eval.py examples/worked/evals/dataset.jsonl \
+    --out report.json --min-pass 0.5 --min-agreement 0.85
+
+python examples/worked/evals/guard.py "Can I expense a taxi home after working late?" \
+    --context "Taxis are reimbursable when travel after 21:00 is required for business reasons and approved in advance by a line manager."</code></pre></div>
 <p><strong>Where to be careful.</strong> A judge is a model too. Check it against human labels (agreement, and whether P = 0.8 really means right 80% of the time) before you put it on the critical path. Where possible, don't let a model judge its own family's output. And for things with a checkable answer, like code or arithmetic, running the tests beats any judge.</p>
 
 <h3 id="ex-pii">2. Personal data in logs</h3>
 <p><strong>How it's done today.</strong> A DLP rule set and a pile of regexes. They're good at the structured cases: email addresses, card numbers that pass a Luhn check, cloud keys. They miss the ones that turn into incidents: a customer's name and address pasted into a support note, a health condition in a claims comment, a search query that says more than it should. Scanning every line with an LLM is unaffordable, and it means shipping raw logs to a third party.</p>
 <p><strong>With a System One read</strong> every line gets four questions that match the categories your privacy policy already uses:</p>
-<pre><code>QUESTIONS = {
-    "person":           noul("The log line identifies a person: a name, home address, phone number or email address."),
-    "special_category": noul("It reveals health, religion, ethnicity, sexuality, trade-union membership "
-                             "or biometrics (UK GDPR Article 9)."),
-    "secret":           noul("It contains a password, API key, access token or private key."),
-    "financial":        noul("It contains payment card or bank account details."),
-}</code></pre>
+<p class="step"><span class="step-n">1</span><span><strong>Ask the questions your privacy policy already asks,</strong> and keep the regexes for the structured cases, where they're exact and give you a span to cut.</span></p>
+<!-- snippet:pii-questions examples/worked/pii/detector.py -->
+<div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/pii/detector.py">examples/worked/pii/detector.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python">QUESTIONS = {
+    "person": {"type": "noul", "instructions":
+               "The log line identifies a person: a name, home address, phone number or email address."},
+    "special_category": {"type": "noul", "instructions":
+               "The log line reveals special-category data about a person: health, religion, ethnicity, "
+               "sexuality, trade-union membership or biometrics (UK GDPR Article 9)."},
+    "secret": {"type": "noul", "instructions":
+               "The log line contains a credential or secret: a password, API key, access token or private key."},
+    "financial": {"type": "noul", "instructions":
+               "The log line contains payment card or bank account details."},
+}
+
+# the structured cases stay with regexes: they are exact, free, and give a span to cut
+PATTERNS = {
+    "EMAIL": re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+"),
+    "IPV4": re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),
+    "CARD": re.compile(r"\b(?:\d[ -]?){13,19}\b"),
+    "AWS_SECRET": re.compile(r"(?&lt;=AWS_SECRET_ACCESS_KEY=)\S+"),
+}</code></pre></div>
+<!-- /snippet -->
 <ul>
   <li><strong>Regex first, then the model.</strong> The cheap deterministic scan still runs and still cuts exact spans. The read covers the free text the patterns can't see into.</li>
   <li><strong>Policy, not a verdict.</strong> A regex hit or P ≥ 0.8 means redact before shipping. P from 0.3 to 0.8 means quarantine for a person. Below that, forward. The thresholds belong to the DPO, not the model.</li>
@@ -519,6 +780,21 @@ OPENJEV_BACKEND=mlx python -m openjev     # http://127.0.0.1:8080</code></pre>
 </ul>
 <figure>
   <div class="diagram">
+    <script type="text/plain" class="mermaid-src">
+flowchart TD
+  subgraph net["Your network · OpenJev on your own GPU"]
+    logs(["Application & service logs"]) --> rx["Regex scan<br/>email · card (Luhn) · IP · cloud keys"]
+    rx --> read["System 1 · PII read<br/>person? special category? secret? card?"]
+    read -->|clean| fwd["Forward unchanged"]
+    read -->|"regex hit, or P ≥ 0.8"| red["Redact<br/>spans or field"]
+    read -->|"0.3 ≤ P < 0.8"| q["Quarantine<br/>privacy review"]
+  end
+  fwd --> siem[("Log platform / SIEM")]
+  red --> siem
+  classDef s1 fill:#fdeee7,stroke:#eb6834,stroke-width:2px,color:#16161a
+  classDef s2 fill:#e8f1fb,stroke:#2a78d6,stroke-width:2px,color:#16161a
+  class read s1
+</script>
     <svg viewBox="0 0 440 470" role="img" aria-labelledby="piT piD">
       <title id="piT">A log pipeline that removes personal data before it leaves the network</title>
       <desc id="piD">Inside the network, application logs pass a regex scan for emails, cards, IP addresses and keys, then a System 1 read for person, special category, secret and card data. Clean lines are forwarded. Lines with a regex hit or high probability are redacted and then forwarded. Unsure lines are quarantined for privacy review. Only forwarded lines reach the log platform outside the network.</desc>
@@ -558,23 +834,129 @@ OPENJEV_BACKEND=mlx python -m openjev     # http://127.0.0.1:8080</code></pre>
       <text class="ts" x="120" y="428" text-anchor="middle">SaaS is fine now</text>
     </svg>
   </div>
-  <figcaption><a href="https://github.com/SteFletcher/openjev/blob/main/examples/pii_in_logs.py"><code>examples/pii_in_logs.py</code></a>. Eight log lines: an email and IP in a failed login, a customer's name and address in a support note, a health condition in a claims note, a card number, an AWS secret, an ambiguous medical search query, and two clean lines. Regex alone catches three of the six that carry personal data or secrets. The read is there for the other three.</figcaption>
+  <figcaption>Demo: <a href="https://github.com/SteFletcher/openjev/blob/main/examples/pii_in_logs.py"><code>examples/pii_in_logs.py</code></a>; worked: <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/pii"><code>examples/worked/pii/</code></a>. Eight log lines: an email and IP in a failed login, a customer's name and address in a support note, a health condition in a claims note, a card number, an AWS secret, an ambiguous medical search query, and two clean lines. Regex alone catches three of the six that carry personal data or secrets. The read is there for the other three.</figcaption>
 </figure>
+<h4>Implementing it</h4>
+<p class="step"><span class="step-n">2</span><span><strong>Decide per line.</strong> A regex hit or a confident read means redact, an unsure read means quarantine, anything else ships.</span></p>
+<!-- snippet:pii-policy examples/worked/pii/detector.py -->
+<div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/pii/detector.py">examples/worked/pii/detector.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python">class PiiDetector:
+    def __init__(self, s1, redact_at=0.8, review_at=0.3):
+        self.s1, self.redact_at, self.review_at = s1, redact_at, review_at
+
+    def check(self, line):
+        hits = [(name, m.span()) for name, rx in PATTERNS.items() for m in rx.finditer(line)
+                if name != "CARD" or luhn(m.group())]
+        r = self.s1.system_one(line, QUESTIONS)          # the whole line, free text included
+        p = {k: a.noul for k, a in r.nouls.items()}
+        top = max(p.values())
+
+        if hits or top &gt;= self.redact_at:
+            return Decision("redact", self._redact(line, hits, p), p, tuple(hits))
+        if top &gt;= self.review_at:
+            return Decision("quarantine", line, p)           # unsure: a person decides
+        return Decision("forward", line, p)
+
+    def _redact(self, line, hits, p):
+        for name, (a, b) in sorted(hits, key=lambda h: -h[1][0]):
+            line = line[:a] + f"[{name}]" + line[b:]
+        found = [k for k, v in p.items() if v &gt;= self.redact_at]
+        if found and not hits:
+            # the model says *that* the line holds personal data, not *where*: drop the free text
+            tag = f'"[REDACTED:{",".join(found)}]"'
+            line = QUOTED.sub(tag, line) if QUOTED.search(line) else f"{line.split(' ', 1)[0]} [REDACTED:{','.join(found)}]"
+        return line</code></pre></div>
+<!-- /snippet -->
+<p class="step"><span class="step-n">3</span><span><strong>Filter the stream.</strong> Reads run concurrently, lines leave in the order they arrived, and memory stays flat on an endless stream.</span></p>
+<!-- snippet:pii-stream examples/worked/pii/log_filter.py -->
+<div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/pii/log_filter.py">examples/worked/pii/log_filter.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python">def filter_stream(detector, lines, out, quarantine, workers=16):
+    """Check lines concurrently, emit them in order. Returns a count per route."""
+    counts = Counter()
+    pending = deque()
+
+    def emit(future):
+        d = future.result()
+        counts[d.route] += 1
+        (quarantine if d.route == "quarantine" else out).write(d.line + "\n")
+
+    with ThreadPoolExecutor(workers) as pool:
+        for line in lines:
+            line = line.rstrip("\n")
+            if not line:
+                continue
+            pending.append(pool.submit(detector.check, line))
+            while len(pending) &gt;= workers * 2:   # bounded: memory stays flat on an endless stream
+                emit(pending.popleft())
+        while pending:
+            emit(pending.popleft())
+    return counts</code></pre></div>
+<!-- /snippet -->
+<p class="step"><span class="step-n">4</span><span><strong>Put it in front of whatever ships logs off the box.</strong></span></p>
+<div class="code"><div class="code-head"><span>terminal</span><button class="copy" type="button">Copy</button></div><pre><code class="language-bash">python examples/worked/pii/log_filter.py --quarantine quarantine.log \
+    &lt; examples/worked/pii/sample.log &gt; clean.log
+
+# in a pipeline, with OpenJev on your own network
+kubectl logs -f deploy/support-api \
+  | python examples/worked/pii/log_filter.py --quarantine /var/log/pii-review.log \
+  | vector --config vector.toml</code></pre></div>
 <p><strong>Where to be careful.</strong> One GPU does ~57 reads a second, about 5 million lines a day flat out. That's plenty for free-text fields and WARN-and-above, but not for every DEBUG line in a large estate, so point it at the lines that can actually carry free text. It also tells you <em>that</em> a line holds personal data, not <em>where</em>. Redact the whole field, or hand the few flagged lines to a span extractor (an NER model like <a href="https://github.com/urchade/GLiNER">GLiNER</a>, or a System 2 call) to cut precisely.</p>
 
 <h3 id="ex-routing">3. Model routing for log events</h3>
 <p><strong>How it's done today.</strong> Either everything goes to one model, usually a big one because nobody wants to be blamed for the miss, or a static rule maps severity to model, or an LLM decides which LLM to call. That last one costs seconds and money per event before any work gets done.</p>
 <p><strong>With a System One router</strong> one read decides whether an event needs a model at all and how much model it needs. A second read checks the answer and moves the event up a tier if it falls short:</p>
-<pre><code>ROUTE = {
-    "actionable": noul("Someone needs to act on or investigate this event."),
-    "complexity": score("How much analysis does a useful answer need?",
-                        ["routine", "simple", "moderate: one component", "hard: several services",
-                         "critical: security or data loss"]),          # → Haiku, Haiku, Sonnet, Opus, Fable
-    "needs_code": noul("A good answer needs someone to read or change application code."),
+<p class="step"><span class="step-n">1</span><span><strong>Ask what the event needs, and map the answer to a tier in code.</strong> The most likely level picks the model, code work starts at Sonnet, and an unsure read errs one tier up.</span></p>
+<!-- snippet:routing-questions examples/worked/routing/router.py -->
+<div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/routing/router.py">examples/worked/routing/router.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python">ROUTE = {
+    "actionable": {"type": "noul", "instructions": "Someone needs to act on or investigate this event."},
+    "complexity": {
+        "type": "score",
+        "instructions": "How much analysis does a useful answer to this event need?",
+        "criteria": [
+            "routine: restate it in one line with the obvious next step",
+            "simple: explain one known error and how to fix it",
+            "moderate: diagnose one failing component from a stack trace or metrics",
+            "hard: correlate several services or a timeline to find the root cause",
+            "critical: security incident or possible data loss, needs careful high-stakes analysis",
+        ],
+    },
+    "needs_code": {"type": "noul", "instructions": "A good answer needs someone to read or change application code."},
 }
-CHECK = {"adequate": noul("The analysis names a probable cause and a concrete next step.")}</code></pre>
+CHECK = {
+    "adequate": {"type": "noul",
+                 "instructions": "The analysis names a probable cause and a concrete next step for this event."},
+}
+
+LEVEL_TO_TIER = {0: "haiku", 1: "haiku", 2: "sonnet", 3: "opus", 4: "fable"}
+
+
+def pick_tier(r):
+    """Policy in code: most likely level -&gt; tier, code work starts at Sonnet, unsure errs upwards."""
+    cx = r.scores["complexity"]
+    tier = TIERS.index(LEVEL_TO_TIER[int(most_likely(cx.probabilities))])
+    if r.nouls["needs_code"].noul &gt;= 0.5:
+        tier = max(tier, TIERS.index("sonnet"))
+    if cx.confidence &lt; 0.4:
+        tier = min(tier + 1, len(TIERS) - 1)
+    return tier</code></pre></div>
+<!-- /snippet -->
 <figure>
   <div class="diagram">
+    <script type="text/plain" class="mermaid-src">
+flowchart TD
+  ev(["Log & alert stream"]) --> route["System 1 · route read<br/>actionable? complexity 0–4? needs code?"]
+  route -->|not actionable| drop["Drop · no model"]
+  route -->|"tier by complexity"| tiers
+  subgraph tiers["Claude, cheapest capable tier"]
+    direction LR
+    haiku["Haiku 4.5<br/>routine"] ~~~ sonnet["Sonnet 5<br/>one service"] ~~~ opus["Opus 5<br/>root cause"] ~~~ fable["Fable 5.1<br/>security"]
+  end
+  tiers --> check["System 1 · check read<br/>names a cause and a next step?"]
+  check -->|yes| done(["Done"])
+  check -.->|"no: escalate one tier"| tiers
+  classDef s1 fill:#fdeee7,stroke:#eb6834,stroke-width:2px,color:#16161a
+  classDef s2 fill:#e8f1fb,stroke:#2a78d6,stroke-width:2px,color:#16161a
+  class route,check s1
+  class haiku,sonnet,opus,fable s2
+</script>
     <svg viewBox="0 0 440 440" role="img" aria-labelledby="rtT rtD">
       <title id="rtT">Routing log events to the cheapest capable model</title>
       <desc id="rtD">Log and alert events go to a System 1 route read. Non-actionable events are dropped with no model called. The rest go to Haiku, Sonnet, Opus or Fable by complexity. A System 1 check read then asks whether the analysis names a cause and next step. If yes, done. If not, the event escalates one tier and is analysed again.</desc>
@@ -622,8 +1004,82 @@ CHECK = {"adequate": noul("The analysis names a probable cause and a concrete ne
       <text class="el" x="30" y="294">one tier</text>
     </svg>
   </div>
-  <figcaption><a href="https://github.com/SteFletcher/openjev/blob/main/examples/model_routing.py"><code>examples/model_routing.py</code></a>. Six events: a healthcheck (dropped), a disk warning (Haiku), a Java stack trace (Sonnet, because it needs code), an OOM-killed cron job (Haiku's answer fails the check, so Sonnet takes it), a cross-service latency incident (Opus), and a suspected admin account takeover (Fable).</figcaption>
+  <figcaption>Demo: <a href="https://github.com/SteFletcher/openjev/blob/main/examples/model_routing.py"><code>examples/model_routing.py</code></a>; worked: <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/routing"><code>examples/worked/routing/</code></a>. Six events: a healthcheck (dropped), a disk warning (Haiku), a Java stack trace (Sonnet, because it needs code), an OOM-killed cron job (Haiku's answer fails the check, so Sonnet takes it), a cross-service latency incident (Opus), and a suspected admin account takeover (Fable).</figcaption>
 </figure>
+<h4>Implementing it</h4>
+<p class="step"><span class="step-n">2</span><span><strong>Wire the graph.</strong> Both System One reads are conditional edges. The reducers add up the models used and the cost across escalations.</span></p>
+<!-- snippet:routing-graph examples/worked/routing/router.py -->
+<div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/routing/router.py">examples/worked/routing/router.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python">class RouteState(TypedDict, total=False):
+    event: str
+    actionable: float
+    tier: int
+    answer: str
+    adequate: float
+    models: Annotated[list, operator.add]     # every model that ran, appended by each analyse
+    cost: Annotated[float, operator.add]      # dollars, summed across escalations
+    s1_tokens: Annotated[int, operator.add]
+
+
+def build_router(s1, claude, adequate_at=0.7, actionable_at=0.3):
+    def route(st):
+        r = s1.system_one(st["event"], ROUTE)
+        return {"actionable": r.nouls["actionable"].noul, "tier": pick_tier(r),
+                "s1_tokens": r.usage.input_tokens or 0}
+
+    def analyse(st):
+        reply = claude(TIERS[st["tier"]], SYSTEM, st["event"])
+        return {"answer": reply.text, "models": [reply.model], "cost": reply.cost}
+
+    def check(st):
+        r = s1.system_one({"event": st["event"], "analysis": st["answer"]}, CHECK)
+        return {"adequate": r.nouls["adequate"].noul, "s1_tokens": r.usage.input_tokens or 0}
+
+    def after_check(st):
+        at_top = st["tier"] == len(TIERS) - 1
+        return "done" if st["adequate"] &gt;= adequate_at or at_top else "escalate"
+
+    g = StateGraph(RouteState)
+    g.add_node("route", route)
+    g.add_node("analyse", analyse)
+    g.add_node("check", check)
+    g.add_node("escalate", lambda st: {"tier": st["tier"] + 1})
+    g.add_node("drop", lambda st: {"answer": "(no model called)"})
+    g.add_edge(START, "route")
+    g.add_conditional_edges("route", lambda st: "analyse" if st["actionable"] &gt;= actionable_at else "drop",
+                            ["analyse", "drop"])
+    g.add_edge("analyse", "check")
+    g.add_conditional_edges("check", after_check, {"done": END, "escalate": "escalate"})
+    g.add_edge("escalate", "analyse")
+    g.add_edge("drop", END)
+    return g.compile()</code></pre></div>
+<!-- /snippet -->
+<p class="step"><span class="step-n">3</span><span><strong>Call Claude at the chosen tier.</strong> Opus 5 and Fable 5.1 use server-side <code>fallbacks: "default"</code>, so a declined request is re-run on Anthropic's recommended fallback model rather than failing. Every call checks <code>stop_reason</code> before reading content.</span></p>
+<!-- snippet:claude-call examples/worked/common/llm.py -->
+<div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/common/llm.py">examples/worked/common/llm.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python">class Claude:
+    """claude(tier, system, prompt) -&gt; Reply. Reads ANTHROPIC_API_KEY or an `ant auth login` profile."""
+
+    def __init__(self, client=None, max_tokens=8000):
+        self.client = client or anthropic.Anthropic()
+        self.max_tokens = max_tokens
+
+    def __call__(self, tier, system, prompt):
+        request = dict(model=MODELS[tier], max_tokens=self.max_tokens, system=system,
+                       messages=[{"role": "user", "content": prompt}])
+        if tier in ("opus", "fable"):
+            # a declined request is re-run server-side on Anthropic's recommended fallback model
+            r = self.client.beta.messages.create(**request, betas=["server-side-fallback-2026-07-01"],
+                                                 fallbacks="default")
+        else:
+            r = self.client.messages.create(**request)
+        if r.stop_reason == "refusal":   # check before reading content: a refusal can arrive with none
+            return Reply("", r.model, r.usage.input_tokens, r.usage.output_tokens, refused=True)
+        text = "".join(b.text for b in r.content if b.type == "text")
+        return Reply(text, r.model, r.usage.input_tokens, r.usage.output_tokens)</code></pre></div>
+<!-- /snippet -->
+<p class="step"><span class="step-n">4</span><span><strong>Run it on a file, or on the live alert stream.</strong></span></p>
+<div class="code"><div class="code-head"><span>terminal</span><button class="copy" type="button">Copy</button></div><pre><code class="language-bash">python examples/worked/routing/run_router.py examples/worked/routing/events.log
+
+tail -F /var/log/alerts.log | python examples/worked/routing/run_router.py</code></pre></div>
 <p>This is where the money is. The mix of events is my assumption, but the prices are list prices. At 100,000 events a day, with 60% needing no model, 30% Haiku, 7% Sonnet, 2.5% Opus and 0.5% Fable, routing costs about <strong>$210 a day against $2,850 for sending everything to Opus 5</strong>. That's roughly 13× cheaper, or around $79k a month. The System One reads themselves come to about $1.50 a day at Jev's price. The less obvious win is that the security incident goes to the strongest model rather than whatever the default happens to be.</p>
 <p><strong>Where to be careful.</strong> A misroute costs more than it saves if a Haiku answer to a real incident gets believed. The check read is what catches that, and it has to be measured too. Re-run a sample of each tier's traffic one tier up and track how often the check read disagrees. And log every routing decision with its distribution, so "why did this go to Haiku?" has an answer.</p>
 
@@ -821,6 +1277,120 @@ CHECK = {"adequate": noul("The analysis names a probable cause and a concrete ne
   });
   render();
   var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(render, 100); });
+})();
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+(function () {
+  function flash(btn, text) {
+    var old = btn.textContent; btn.textContent = text; btn.classList.add('done');
+    setTimeout(function () { btn.textContent = old; btn.classList.remove('done'); }, 1400);
+  }
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+    return new Promise(function (ok, fail) {
+      var t = document.createElement('textarea'); t.value = text; t.setAttribute('readonly', '');
+      t.style.position = 'fixed'; t.style.opacity = '0'; document.body.appendChild(t); t.select();
+      try { document.execCommand('copy') ? ok() : fail(); } catch (e) { fail(e); } finally { t.remove(); }
+    });
+  }
+
+  // code blocks
+  if (window.hljs) document.querySelectorAll('.code pre code').forEach(function (el) { hljs.highlightElement(el); });
+  document.querySelectorAll('.code .copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var code = btn.closest('.code').querySelector('pre code').innerText;
+      copyText(code).then(function () { flash(btn, 'Copied'); }, function () { flash(btn, 'Press ⌘C'); });
+    });
+  });
+
+  // diagrams and the cost chart: copy as PNG, SVG or Mermaid
+  var PROPS = ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin',
+               'font-family', 'font-size', 'font-weight', 'font-style', 'text-anchor', 'dominant-baseline', 'opacity'];
+  function inline(src, dst) {
+    var cs = getComputedStyle(src), style = '';
+    PROPS.forEach(function (p) { var v = cs.getPropertyValue(p); if (v) style += p + ':' + v + ';'; });
+    var marker = cs.getPropertyValue('marker-end');
+    if (marker && marker !== 'none') style += 'marker-end:url(#arr);';
+    dst.setAttribute('style', style);
+    dst.removeAttribute('class');
+  }
+  function standalone(svg) {
+    var clone = svg.cloneNode(true);
+    var a = svg.querySelectorAll('*'), b = clone.querySelectorAll('*');   // same order: pair before removing anything
+    for (var i = 0; i < a.length; i++) if (!/^(style|title|desc|defs|marker)$/i.test(a[i].tagName) && !a[i].closest('marker')) inline(a[i], b[i]);
+    clone.querySelectorAll('style, title, desc').forEach(function (n) { n.remove(); });
+    var own = clone.querySelector('#arr path');
+    if (own) inline(document.querySelector('#arr path'), own);
+    var srcMarker = document.getElementById('arr');
+    if (srcMarker && clone.querySelector('[style*="marker-end"]') && !clone.querySelector('#arr')) {
+      var defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      var m = srcMarker.cloneNode(true);
+      inline(srcMarker.firstElementChild, m.firstElementChild);
+      defs.appendChild(m); clone.insertBefore(defs, clone.firstChild);
+    }
+    var vb = svg.viewBox.baseVal, w = vb.width, h = vb.height;
+    var bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bg.setAttribute('x', vb.x); bg.setAttribute('y', vb.y); bg.setAttribute('width', w); bg.setAttribute('height', h);
+    bg.setAttribute('fill', getComputedStyle(svg.closest('.diagram, .calc') || document.body).backgroundColor);
+    clone.insertBefore(bg, clone.firstChild);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('width', w); clone.setAttribute('height', h);
+    clone.removeAttribute('id');
+    return { text: new XMLSerializer().serializeToString(clone), w: w, h: h };
+  }
+  function png(svg, scale) {
+    var s = standalone(svg);
+    return new Promise(function (ok, fail) {
+      var img = new Image();
+      img.onload = function () {
+        var c = document.createElement('canvas'); c.width = s.w * scale; c.height = s.h * scale;
+        var ctx = c.getContext('2d'); ctx.scale(scale, scale); ctx.drawImage(img, 0, 0, s.w, s.h);
+        c.toBlob(function (b) { b ? ok(b) : fail(new Error('no blob')); }, 'image/png');
+      };
+      img.onerror = fail;
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s.text);
+    });
+  }
+  function download(blob, name) {
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+  function slug(svg) {
+    var t = svg.querySelector('title');
+    return ((t && t.textContent) || svg.getAttribute('aria-label') || 'diagram').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+  }
+  function button(bar, label, fn) {
+    var b = document.createElement('button'); b.type = 'button'; b.textContent = label;
+    b.addEventListener('click', function () { fn(b); }); bar.appendChild(b);
+  }
+  window.graphExport = { svg: function (el) { return standalone(el).text; }, png: png };   // for anyone scripting the page
+  document.querySelectorAll('.diagram svg, #costChart').forEach(function (svg) {
+    var host = svg.closest('.diagram') || svg;
+    var bar = document.createElement('div'); bar.className = 'dia-tools';
+    var lab = document.createElement('span'); lab.className = 'label'; lab.textContent = 'Copy this graph'; bar.appendChild(lab);
+    button(bar, 'Copy image', function (b) {
+      var blob = png(svg, 2);
+      if (navigator.clipboard && window.ClipboardItem) {
+        navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+          .then(function () { flash(b, 'Copied'); }, function () { blob.then(function (x) { download(x, slug(svg) + '.png'); flash(b, 'Downloaded'); }); });
+      } else { blob.then(function (x) { download(x, slug(svg) + '.png'); flash(b, 'Downloaded'); }); }
+    });
+    button(bar, 'Copy SVG', function (b) {
+      copyText(standalone(svg).text).then(function () { flash(b, 'Copied'); }, function () { flash(b, 'Failed'); });
+    });
+    var mer = svg.closest('.diagram') && svg.closest('.diagram').querySelector('.mermaid-src');
+    if (mer) {
+      button(bar, 'Copy Mermaid', function (b) {
+        copyText(mer.textContent.trim() + '\n').then(function () { flash(b, 'Copied'); }, function () { flash(b, 'Failed'); });
+      });
+    }
+    button(bar, 'Download PNG', function (b) {
+      png(svg, 2).then(function (x) { download(x, slug(svg) + '.png'); flash(b, 'Saved'); });
+    });
+    host.parentNode.insertBefore(bar, host);
+  });
 })();
 </script>
 </body>

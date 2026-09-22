@@ -1,5 +1,8 @@
 # Enterprise examples
 
+These are the quick, dependency-free demos. For how each would be built for real, with
+TypeSafe's SDK, LangGraph and Claude, see [`worked/`](worked/).
+
 Three problems where a System One read (Jev, or OpenJev on your own hardware) does a better
 job than the rule or the LLM call it replaces. Each is a small graph: nodes do the work, and
 System One reads sit on the edges and decide where each item goes next. The write-up is at

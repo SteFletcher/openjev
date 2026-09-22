@@ -3,7 +3,7 @@ name: Deploy site to GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ["site/**", ".github/workflows/pages.yml"]
+    paths: ["site/**", "examples/worked/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check the page shows the code in examples/worked
+        run: python3 site/snippets.py --check
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
