@@ -178,12 +178,16 @@ h1:hover .anchor, h2:hover .anchor, h3:hover .anchor, h4:hover .anchor, .anchor:
 .anchor.done { opacity: 1; color: var(--s1); }
 @media (hover: none) { .anchor { opacity: .55; } }
 .glance-h { font-size: 20px; margin: 0 0 12px; }
-nav.toc .toc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-@media (max-width: 640px) { nav.toc .toc-grid { grid-template-columns: 1fr; gap: 10px; } }
-nav.toc .toc-grid p { margin: 0 0 4px; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; }
-nav.toc .toc-grid p a { color: var(--s1); text-decoration: none; }
+nav.toc .toc-title { font-size: 20px; margin: 0 0 14px; }
+nav.toc .toc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+@media (max-width: 700px) { nav.toc .toc-grid { grid-template-columns: 1fr; gap: 16px; } }
+nav.toc .toc-grid > div > p:first-child { margin: 0; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; }
+nav.toc .toc-grid > div > p:first-child a { color: var(--s1); text-decoration: none; }
+nav.toc .toc-part { margin: 2px 0 8px; font-weight: 600; line-height: 1.35; }
 nav.toc .toc-grid ol { columns: 1; margin: 0; padding-left: 18px; }
-nav.toc .toc-foot { margin: 12px 0 0; font-weight: 400; }
+nav.toc .toc-grid ol ol { list-style: lower-alpha; margin: 2px 0 4px; font-size: 14px; }
+nav.toc .toc-grid li { margin-bottom: 4px; line-height: 1.4; }
+nav.toc .toc-foot { margin: 14px 0 0; font-weight: 400; }
 /* diagram toolbar */
 .dia-tools { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; margin: 0 0 8px; }
 .dia-tools .label { font-size: 12px; color: var(--text-3); margin-right: auto; align-self: center; }
@@ -212,29 +216,49 @@ nav.toc .toc-foot { margin: 12px 0 0; font-weight: 400; }
   </table></div>
 </section>
 
-<nav class="toc" aria-label="Contents">
+<!-- toc -->
+<nav class="toc" id="contents" aria-label="Contents">
+  <p class="toc-title">Contents</p>
   <div class="toc-grid">
-    <div><p><a href="#why">Why</a></p><ol>
-      <li><a href="#s1s2">System 1 vs System 2</a></li>
+    <div>
+      <p><a href="#why">Why</a></p>
+      <p class="toc-part"><a href="#why">Most automation is System 1 work</a></p>
+      <ol>
+      <li><a href="#s1s2">System 1 vs System 2, in summary</a>
+        <ol><li><a href="#system-1-model">System 1 model (Jev, OpenJev)</a></li><li><a href="#system-2-model">System 2 model (Standard LLMs)</a></li></ol></li>
       <li><a href="#cicd">The decisions enterprises already make</a></li>
       <li><a href="#cost">What it's worth</a></li>
-      <li><a href="#bpa">The business case</a></li>
-    </ol></div>
-    <div><p><a href="#what">What</a></p><ol>
+      <li><a href="#bpa">The business case: process automation</a></li>
+      </ol>
+    </div>
+    <div>
+      <p><a href="#what">What</a></p>
+      <p class="toc-part"><a href="#what">Jev, the alternatives, and three use cases</a></p>
+      <ol>
       <li><a href="#vs-llm">Jev vs standard LLMs</a></li>
       <li><a href="#open">Jev vs the open variants</a></li>
       <li><a href="#graphs">Where it fits in agent graphs</a></li>
-      <li><a href="#enterprise">Three use cases</a>: <a href="#ex-evals">evals</a>, <a href="#ex-pii">PII</a>, <a href="#ex-routing">routing</a></li>
-    </ol></div>
-    <div><p><a href="#how">How</a></p><ol>
-      <li><a href="#local">Run it locally</a> (<a href="#min-spec">minimum spec</a>)</li>
+      <li><a href="#enterprise">Three use cases to start with</a>
+        <ol><li><a href="#ex-evals">Evals: a judge that knows when it's unsure</a></li><li><a href="#ex-pii">Personal data in logs</a></li><li><a href="#ex-routing">Model routing for log events</a></li></ol></li>
+      </ol>
+    </div>
+    <div>
+      <p><a href="#how">How</a></p>
+      <p class="toc-part"><a href="#how">Run it, then build the use cases</a></p>
+      <ol>
+      <li><a href="#local">Run it locally, and how big it is</a>
+        <ol><li><a href="#min-spec">Minimum spec for my demo</a></li></ol></li>
       <li><a href="#ex-setup">Set up once</a></li>
-      <li>Build: <a href="#how-evals">evals</a>, <a href="#how-pii">PII</a>, <a href="#how-routing">routing</a></li>
+      <li><a href="#how-evals">Build the eval judge</a></li>
+      <li><a href="#how-pii">Build the PII filter</a></li>
+      <li><a href="#how-routing">Build the model router</a></li>
       <li><a href="#caveats">Caveats</a></li>
-    </ol></div>
+      </ol>
+    </div>
   </div>
-  <p class="toc-foot"><a href="#links">Further reading</a></p>
+  <p class="toc-foot">Also: <a href="#glance-h">The use cases at a glance</a> · <a href="#links">Further reading</a></p>
 </nav>
+<!-- /toc -->
 
 <!-- ============================ WHY ============================ -->
 <h2 class="part-h" id="why"><span class="part-k">Why</span>Most automation is System 1 work</h2>
@@ -778,7 +802,7 @@ def client() -&gt; TypeSafeClient:
         model=os.environ.get("TYPESAFE_MODEL", "jev-latest"),  # OpenJev accepts Jev's name as an alias
     )</code></pre></div>
 <!-- /snippet -->
-<h4 id="how-evals">Build the eval judge</h4>
+<h3 id="how-evals">Build the eval judge</h3>
 <p>The code is in <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/evals"><code>examples/worked/evals/</code></a>. <a href="#ex-evals">What it does and why</a> is in the What part.</p>
 <p class="step"><span class="step-n">1</span><span><strong>Write the rubric as questions.</strong> Each criterion is a <code>noul</code> or a <code>score</code> in Jev's wire format, so it works with any client.</span></p>
 <!-- snippet:evals-rubric examples/worked/evals/rubric.py -->
@@ -954,7 +978,7 @@ python examples/worked/evals/guard.py "Can I expense a taxi home after working l
     --context "Taxis are reimbursable when travel after 21:00 is required for business reasons and approved in advance by a line manager."</code></pre></div>
 <p><strong>Where to be careful.</strong> A judge is a model too. Check it against human labels (agreement, and whether P = 0.8 really means right 80% of the time) before you put it on the critical path. Where possible, don't let a model judge its own family's output. And for things with a checkable answer, like code or arithmetic, running the tests beats any judge.</p>
 
-<h4 id="how-pii">Build the PII filter</h4>
+<h3 id="how-pii">Build the PII filter</h3>
 <p>The code is in <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/pii"><code>examples/worked/pii/</code></a>. <a href="#ex-pii">What it does and why</a> is in the What part.</p>
 <p class="step"><span class="step-n">1</span><span><strong>Ask the questions your privacy policy already asks,</strong> and keep the regexes for the structured cases, where they're exact and give you a span to cut.</span></p>
 <!-- snippet:pii-questions examples/worked/pii/detector.py -->
@@ -1041,7 +1065,7 @@ kubectl logs -f deploy/support-api \
   | vector --config vector.toml</code></pre></div>
 <p><strong>Where to be careful.</strong> One GPU does ~57 reads a second, about 5 million lines a day flat out. That's plenty for free-text fields and WARN-and-above, but not for every DEBUG line in a large estate, so point it at the lines that can actually carry free text. It also tells you <em>that</em> a line holds personal data, not <em>where</em>. Redact the whole field, or hand the few flagged lines to a span extractor (an NER model like <a href="https://github.com/urchade/GLiNER">GLiNER</a>, or a System 2 call) to cut precisely.</p>
 
-<h4 id="how-routing">Build the model router</h4>
+<h3 id="how-routing">Build the model router</h3>
 <p>The code is in <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/routing"><code>examples/worked/routing/</code></a>. <a href="#ex-routing">What it does and why</a> is in the What part.</p>
 <p class="step"><span class="step-n">1</span><span><strong>Ask what the event needs, and map the answer to a tier in code.</strong> The most likely level picks the model, code work starts at Sonnet, and an unsure read errs one tier up.</span></p>
 <!-- snippet:routing-questions examples/worked/routing/router.py -->
