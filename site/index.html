@@ -112,7 +112,6 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 @media (max-width: 600px) { .twocol { grid-template-columns: 1fr; } }
 .card { background: var(--surface); border-radius: 10px; padding: 16px 18px; border-top: 3px solid var(--s1); }
 .card.s2 { border-top-color: var(--s2); }
-.card h3 { margin-top: 0; }
 .card ul { padding-left: 18px; margin: 0; font-size: 15px; }
 
 .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
@@ -163,7 +162,28 @@ footer { margin: 72px 0 0; padding: 24px 0 48px; border-top: 1px solid var(--rul
 .hljs-attr, .hljs-meta, .hljs-variable { color: var(--tok-attr); }
 .step { display: flex; gap: 10px; align-items: baseline; margin: 22px 0 10px; }
 .step-n { flex: none; display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--s1); color: #fff; font: 700 13px Inter, system-ui, sans-serif; transform: translateY(-1px); }
-h4 { font-size: 16px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-2); margin: 30px 0 4px; }
+h3 { font-size: 25px; line-height: 1.25; letter-spacing: -.01em; margin: 52px 0 12px; }
+h4 { font-size: 20px; line-height: 1.3; margin: 40px 0 10px; }
+.card h4 { margin-top: 0; font-size: 18px; }
+h2.part-h { font-size: clamp(30px, 5vw, 38px); line-height: 1.1; letter-spacing: -.02em; margin: 96px 0 12px; padding-top: 28px; border-top: 3px solid var(--text); }
+.part-k { display: block; font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--s1); margin-bottom: 8px; }
+.part-intro { font-size: 18px; color: var(--text-2); }
+.more { font-weight: 600; }
+.more a { text-decoration: none; }
+.glance { margin: 32px 0 0; }
+h1[id], h2[id], h3[id], h4[id] { scroll-margin-top: 20px; }
+.anchor { margin-left: .35em; font-weight: 500; color: var(--text-3); text-decoration: none; opacity: 0; transition: opacity .15s; font-size: .8em; }
+h1:hover .anchor, h2:hover .anchor, h3:hover .anchor, h4:hover .anchor, .anchor:focus { opacity: 1; }
+.anchor:hover { color: var(--link); }
+.anchor.done { opacity: 1; color: var(--s1); }
+@media (hover: none) { .anchor { opacity: .55; } }
+.glance-h { font-size: 20px; margin: 0 0 12px; }
+nav.toc .toc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+@media (max-width: 640px) { nav.toc .toc-grid { grid-template-columns: 1fr; gap: 10px; } }
+nav.toc .toc-grid p { margin: 0 0 4px; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; }
+nav.toc .toc-grid p a { color: var(--s1); text-decoration: none; }
+nav.toc .toc-grid ol { columns: 1; margin: 0; padding-left: 18px; }
+nav.toc .toc-foot { margin: 12px 0 0; font-weight: 400; }
 /* diagram toolbar */
 .dia-tools { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; margin: 0 0 8px; }
 .dia-tools .label { font-size: 12px; color: var(--text-3); margin-right: auto; align-self: center; }
@@ -175,35 +195,56 @@ h4 { font-size: 16px; text-transform: uppercase; letter-spacing: .06em; color: v
 <div class="wrap">
 <header class="hero">
   <p class="kicker">Notes from the bench</p>
-  <h1>System One models vs LLMs: fast, typed decisions for automation</h1>
-  <p class="standfirst">I've been running OpenJev, an open reimplementation of TypeSafe's Jev, on my own hardware. These are my notes on how it compares with Jev, with the other open variants and with the LLMs we already use. They also cover what it costs, where I think it belongs in CI/CD, business process automation and agent graphs, and three enterprise problems worked through with runnable code: evals, personal data in logs and model routing.</p>
+  <h1 id="top">System One models vs LLMs: fast, typed decisions for automation</h1>
+  <p class="standfirst">I've been running OpenJev, an open reimplementation of TypeSafe's Jev, on my own hardware. This is my case for System One models in enterprise automation, in three parts. <a href="#why">Why</a>: most automation decisions are fast judgements, and we've been paying for slow reasoning. <a href="#what">What</a>: Jev, the open alternatives, and three use cases (evals, personal data in logs and model routing). <a href="#how">How</a>: running it and building each use case, with code you can copy.</p>
   <p class="byline">Stephen Fletcher · September 2026 · <a href="https://github.com/SteFletcher/openjev">Source on GitHub</a></p>
 </header>
 
+<section class="glance" aria-labelledby="glance-h">
+  <h2 id="glance-h" class="glance-h">The use cases at a glance</h2>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Use case</th><th>Why: what hurts today</th><th>What: the System One version</th><th>How</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Evals</strong></td><td>LLM judges are slow and costly, so they run on a sample, and their scores are made up</td><td>A four-question rubric with a probability on each answer. Unsure cases go to a person, and every answer gets graded. <a href="#ex-evals">What&nbsp;→</a></td><td><a href="#how-evals">Rubric, CI gate, LangGraph guard&nbsp;→</a></td></tr>
+      <tr><td><strong>PII in logs</strong></td><td>Regexes miss personal data in free text, and scanning with an LLM is unaffordable and leaks the data</td><td>Four reads per line, then redact, quarantine or forward, all on your own network. <a href="#ex-pii">What&nbsp;→</a></td><td><a href="#how-pii">Detector and streaming filter&nbsp;→</a></td></tr>
+      <tr><td><strong>Model routing</strong></td><td>Everything goes to one big model, or an LLM decides which LLM to use</td><td>One read picks the cheapest model that can cope, and a second checks the answer and escalates. <a href="#ex-routing">What&nbsp;→</a></td><td><a href="#how-routing">LangGraph router, Claude by tier&nbsp;→</a></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
 <nav class="toc" aria-label="Contents">
-  <p>Contents</p>
-  <ol>
-    <li><a href="#s1s2">System 1 vs System 2</a></li>
-    <li><a href="#vs-llm">Jev vs standard LLMs</a></li>
-    <li><a href="#open">Jev vs the open variants</a></li>
-    <li><a href="#local">Running it locally, and how big it is</a> (<a href="#min-spec">minimum spec</a>)</li>
-    <li><a href="#cicd">From demo decisions to enterprise ones</a></li>
-    <li><a href="#bpa">What it means for business process automation</a></li>
-    <li><a href="#graphs">Where it fits in agent graphs</a></li>
-    <li><a href="#enterprise">Three enterprise problems</a>: <a href="#ex-evals">evals</a>, <a href="#ex-pii">PII in logs</a>, <a href="#ex-routing">model routing</a></li>
-    <li><a href="#cost">Cost</a></li>
-    <li><a href="#caveats">Caveats</a></li>
-    <li><a href="#links">Further reading</a></li>
-  </ol>
+  <div class="toc-grid">
+    <div><p><a href="#why">Why</a></p><ol>
+      <li><a href="#s1s2">System 1 vs System 2</a></li>
+      <li><a href="#cicd">The decisions enterprises already make</a></li>
+      <li><a href="#cost">What it's worth</a></li>
+      <li><a href="#bpa">The business case</a></li>
+    </ol></div>
+    <div><p><a href="#what">What</a></p><ol>
+      <li><a href="#vs-llm">Jev vs standard LLMs</a></li>
+      <li><a href="#open">Jev vs the open variants</a></li>
+      <li><a href="#graphs">Where it fits in agent graphs</a></li>
+      <li><a href="#enterprise">Three use cases</a>: <a href="#ex-evals">evals</a>, <a href="#ex-pii">PII</a>, <a href="#ex-routing">routing</a></li>
+    </ol></div>
+    <div><p><a href="#how">How</a></p><ol>
+      <li><a href="#local">Run it locally</a> (<a href="#min-spec">minimum spec</a>)</li>
+      <li><a href="#ex-setup">Set up once</a></li>
+      <li>Build: <a href="#how-evals">evals</a>, <a href="#how-pii">PII</a>, <a href="#how-routing">routing</a></li>
+      <li><a href="#caveats">Caveats</a></li>
+    </ol></div>
+  </div>
+  <p class="toc-foot"><a href="#links">Further reading</a></p>
 </nav>
 
-<!-- ============================================================ -->
-<h2 id="s1s2">System 1 vs System 2, in summary</h2>
+<!-- ============================ WHY ============================ -->
+<h2 class="part-h" id="why"><span class="part-k">Why</span>Most automation is System 1 work</h2>
+<p class="part-intro">Most of the decisions in automation are fast judgements, and we've been paying for slow reasoning to make them. This part covers the idea, the decisions it applies to, what it's worth and what it changes for the business.</p>
+<h3 id="s1s2">System 1 vs System 2, in summary</h3>
 <p>The names come from Daniel Kahneman's <a href="https://en.wikipedia.org/wiki/Thinking,_Fast_and_Slow"><em>Thinking, Fast and Slow</em></a>. <strong>System 1</strong> is the fast, automatic judgement you make without deliberating: this email looks like spam, that driver is about to pull out. <strong>System 2</strong> is slow and effortful. It's the reasoning you do when you work through a problem step by step.</p>
 <p>That maps onto the models quite neatly:</p>
 <div class="twocol">
   <div class="card">
-    <h3>System 1 model <span class="tag s1">Jev, OpenJev</span></h3>
+    <h4 id="system-1-model">System 1 model <span class="tag s1">Jev, OpenJev</span></h4>
     <ul>
       <li>State in, typed answers out: yes/no, pick one, score on a scale</li>
       <li>One read returns a probability for every option</li>
@@ -213,7 +254,7 @@ h4 { font-size: 16px; text-transform: uppercase; letter-spacing: .06em; color: v
     </ul>
   </div>
   <div class="card s2">
-    <h3>System 2 model <span class="tag s2">Standard LLMs</span></h3>
+    <h4 id="system-2-model">System 2 model <span class="tag s2">Standard LLMs</span></h4>
     <ul>
       <li>Writes text token by token, often after a long reasoning trace</li>
       <li>Plans, writes code, explains, uses tools</li>
@@ -224,95 +265,8 @@ h4 { font-size: 16px; text-transform: uppercase; letter-spacing: .06em; color: v
   </div>
 </div>
 <p>The point isn't that one replaces the other. Most of what automation does all day is System 1 work: route this, gate that, flag the other. We've been paying System 2 prices and waiting System 2 latencies for it because an LLM was the only fuzzy decision-maker to hand.</p>
-
-<!-- ============================================================ -->
-<h2 id="vs-llm">Jev vs standard LLMs</h2>
-<p>TypeSafe <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">launched Jev</a> as "the first System One model". You send it a state (any unstructured text, and with OpenJev images too) plus a set of typed questions. It returns each answer with a probability and a confidence, and it generates no prose at all. TypeSafe says it trains Jev with <em>Reinforcement Learning for Calibrated Decisions</em> (RLCD), so that the probabilities mean what they say.</p>
-<div class="table-scroll"><table>
-  <thead><tr><th></th><th>Standard LLM</th><th>Jev (System One)</th></tr></thead>
-  <tbody>
-    <tr><td><strong>Output</strong></td><td>A string, possibly JSON if you ask nicely or use constrained decoding</td><td>Typed values: <code>noul</code> (P(yes)), <code>choice</code>, <code>score</code></td></tr>
-    <tr><td><strong>Off-schema answers</strong></td><td>Possible. You validate, retry and repair</td><td>Impossible by construction, because only the label tokens are scored</td></tr>
-    <tr><td><strong>Confidence</strong></td><td>Self-reported if you ask, and usually overconfident</td><td>Read from the model's own distribution on every answer</td></tr>
-    <tr><td><strong>Many questions</strong></td><td>Sequential, and earlier answers bias later ones</td><td>Answered in parallel and in isolation against the same state</td></tr>
-    <tr><td><strong>Latency (vendor figures)</strong></td><td>3–329 s for frontier models on TypeSafe's workflow evals</td><td>70–500 ms end to end</td></tr>
-    <tr><td><strong>Price (list)</strong></td><td>$1–$10 /MTok in, $5–$50 /MTok out for Claude today</td><td>$0.042 /MTok in, and output is free</td></tr>
-    <tr><td><strong>Can it reason, plan, write?</strong></td><td>Yes. That's what it's for</td><td>No. It decides</td></tr>
-  </tbody>
-</table></div>
-<div class="callout">
-  <p><strong>A note on "zero hallucinations".</strong> TypeSafe's launch post claims a 0% hallucination rate. That means zero <em>type</em> errors: you can't get back a label that doesn't exist. The model can still pick the wrong label. The useful difference is that it tells you how sure it is, so you can put a threshold in front of the answer. Its <a href="https://evals.typesafe.ai/">workflow evals</a> quote 193× faster and 444× cheaper, and TypeSafe itself says those numbers are at the high end of what to expect. I'd treat them as vendor numbers and measure my own.</p>
-</div>
-
-<!-- ============================================================ -->
-<h2 id="open">Jev vs the open variants</h2>
-<p>Jev is closed weights and API only. Within days of the launch, people started rebuilding the idea in the open. The rebuilds fall into four groups:</p>
-<ol>
-  <li><strong>Wire-compatible servers on a big open model.</strong> <a href="https://github.com/razorback16/openjev">OpenJev</a>, which I've forked <a href="https://github.com/SteFletcher/openjev">here</a>, is one. It runs Google/NVIDIA's DiffusionGemma, a <em>diffusion</em> language model that denoises a whole canvas of tokens at once. OpenJev leaves one masked slot per question and reads the probability distribution for every slot in a single pass. It speaks Jev's API, so TypeSafe's own SDK works against it unchanged.</li>
-  <li><strong>Logit readers on a frozen small model.</strong> These take an ordinary autoregressive model (Qwen 4B, for example) and read the next-token probabilities of the label tokens. They're cheap and they run on a laptop, but the probabilities are relative, not calibrated.</li>
-  <li><strong>Small models fine-tuned for decisions.</strong> These are trained or given a decision head so they answer in Jev's shape. Some are small enough to run on a CPU.</li>
-  <li><strong>Structured-output libraries.</strong> <a href="https://github.com/dottxt-ai/outlines">Outlines</a>, <a href="https://github.com/567-labs/instructor">Instructor</a> and <a href="https://github.com/stanfordnlp/dspy">DSPy</a> put a typed interface on any LLM. You still get System 2 cost and latency, just with better manners.</li>
-</ol>
-<div class="table-scroll"><table>
-  <thead><tr><th>Project</th><th>Approach</th><th>Base model</th><th>Weights</th><th>Runs on</th><th>Calibrated?</th></tr></thead>
-  <tbody>
-    <tr><td><a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">Jev</a></td><td>Trained System One model (RLCD)</td><td>Undisclosed</td><td>Closed</td><td>TypeSafe API</td><td>Claimed, by design</td></tr>
-    <tr><td><a href="https://github.com/razorback16/openjev">OpenJev</a></td><td>Diffusion read-out, Jev wire API</td><td>DiffusionGemma 26B-A4B</td><td>Apache-2.0</td><td>24 GB NVIDIA GPU or 16 GB Mac</td><td>Model's own distribution, not RLCD-trained</td></tr>
-    <tr><td>openjev-sglang</td><td>Jev API on SGLang</td><td>Qwen3.6-35B-A3B</td><td>Open</td><td>B200-class GPU</td><td>Says it isn't</td></tr>
-    <tr><td>SemIf/openjev</td><td>Frozen logit reader</td><td>Qwen3.5-4B</td><td>MIT</td><td>RTX 3090-class GPU</td><td>Relative probabilities</td></tr>
-    <tr><td>mini-jev</td><td>Frozen logit reader</td><td>Qwen3-4B</td><td>MIT</td><td>~8.5 GB, Mac or CUDA</td><td>Says it isn't</td></tr>
-    <tr><td>kev</td><td>Fine-tuned, Jev schema</td><td>Qwen3.5 0.8B / 4B / 9B</td><td>Open</td><td>Self-hosted GPU</td><td>Unstated</td></tr>
-    <tr><td>Laya</td><td>Decision head on an encoder</td><td>ModernBERT-large (421M)</td><td>Apache-2.0</td><td>T4 (~35 ms) or CPU</td><td>ECE 0.081 after temperature fitting</td></tr>
-    <tr><td>NanoJev</td><td>Trained from scratch</td><td>Own, 0.6B</td><td>MIT</td><td>CUDA GPU</td><td>Unstated</td></tr>
-  </tbody>
-</table></div>
-<p class="small muted">The rows other than Jev and OpenJev are summarised from the community list at <a href="https://systemonemodels.org/examples/alternatives/">systemonemodels.org</a>. I haven't run them myself.</p>
-<p>My take: <strong>nobody outside TypeSafe knows how to do RLCD</strong>, because it hasn't been described in enough detail to copy. So every open variant gives you the <em>shape</em> of Jev (typed answers, parallel questions, a probability on everything). None of them gives you Jev's calibration guarantee for free. OpenJev is the most complete of the lot. It has the same wire API, a strong 26B model underneath, images, and an OpenAI-compatible chat endpoint from the same weights. Its confidence comes from a real distribution rather than a number the model makes up. Even so, if you're going to act on thresholds you should check its calibration on your own data. More on that under <a href="#caveats">caveats</a>.</p>
-
-<!-- ============================================================ -->
-<h2 id="local">Running it locally, and how big it is</h2>
-<p>This is where the open variants earn their keep. Jev is a hosted API, but OpenJev fits on a single workstation GPU or a decent Mac.</p>
-<p>The model is <a href="https://huggingface.co/nvidia/diffusiongemma-26B-A4B-it-NVFP4">DiffusionGemma 26B-A4B</a>, a diffusion version of Gemma 4 26B released by NVIDIA under Apache-2.0. It's a <strong>mixture of experts</strong> with <strong>25.2B parameters in total, of which 3.8B are active per token</strong>. It needs the memory of a 25B model but does the compute of a ~4B one, and that's why it's quick. It has a 262K-token context and takes text, images and video as input.</p>
-<div class="table-scroll"><table>
-  <thead><tr><th>Build</th><th>Where it runs</th><th class="num">Download / memory</th><th class="num">Latency (3 questions)</th></tr></thead>
-  <tbody>
-    <tr><td><a href="https://huggingface.co/nvidia/diffusiongemma-26B-A4B-it-NVFP4">NVFP4 (4-bit)</a></td><td>NVIDIA GPU via vLLM, in Docker</td><td class="num">~18 GB, 24 GB+ GPU</td><td class="num">94 ms p50 (RTX PRO 6000)</td></tr>
-    <tr><td><a href="https://huggingface.co/mlx-community/diffusiongemma-26B-A4B-it-4bit">MLX 4-bit</a></td><td>Apple silicon, in-process</td><td class="num">~16 GB free memory</td><td class="num">0.2–0.4 s (M3 Ultra), 0.39 s (M4 Max)</td></tr>
-    <tr><td>MLX 8-bit</td><td>Apple silicon</td><td class="num">≈ 27 GB*</td><td class="num">not measured</td></tr>
-    <tr><td>MLX bf16</td><td>Apple silicon, big memory</td><td class="num">≈ 50 GB*</td><td class="num">not measured</td></tr>
-  </tbody>
-</table></div>
-<p class="small muted">* These are my own estimates from the parameter count (25.2B × 1 or 2 bytes, plus overhead), not published figures. The other numbers come from the <a href="https://github.com/razorback16/openjev#run-your-own">OpenJev README</a>.</p>
-<p>On a Mac it really is two commands:</p>
-<div class="code"><div class="code-head"><span>terminal</span><button class="copy" type="button">Copy</button></div><pre><code class="language-bash">pip install -e '.[mlx]'
-OPENJEV_BACKEND=mlx python -m openjev     # http://127.0.0.1:8080</code></pre></div>
-<p>On an NVIDIA box, <code>docker compose up -d</code> pulls a prebuilt image with the patched vLLM. Either way the first start downloads the weights into <code>~/.cache/huggingface</code>, and after that nothing leaves the machine. For regulated data that matters as much as the price does.</p>
-<h3 id="min-spec">Minimum spec for my demo</h3>
-<p>My own demo is a small, dependency-free Python project. It has four scripts, one for each primitive plus a triage pipeline that combines all three, and a script that starts OpenJev on a Mac with the 4-bit MLX weights. This is what you need to run it against the real model:</p>
-<div class="table-scroll"><table>
-  <thead><tr><th></th><th>Minimum</th><th>Comfortable</th></tr></thead>
-  <tbody>
-    <tr><td><strong>Machine</strong></td><td>Apple silicon Mac (any M-series)</td><td>M3 Max / M4 Max or better, which gives 0.2–0.4 s per request</td></tr>
-    <tr><td><strong>Unified memory</strong></td><td><strong>32 GB</strong></td><td>48 GB or more, so the rest of your tools stay open</td></tr>
-    <tr><td><strong>macOS</strong></td><td>14 Sonoma, the oldest MLX supports</td><td>Current release</td></tr>
-    <tr><td><strong>Free disk</strong></td><td>~20 GB: 16.6 GB of weights plus ~0.6 GB of Python environment</td><td>40 GB+ if you want to try the 8-bit build</td></tr>
-    <tr><td><strong>Software</strong></td><td>git, <a href="https://docs.astral.sh/uv/">uv</a> (it fetches Python 3.12)</td><td></td></tr>
-    <tr><td><strong>Network</strong></td><td>One 16.6 GB download on first run, then fully offline</td><td></td></tr>
-  </tbody>
-</table></div>
-<p>Why 32 GB and not 16 or 24? The 4-bit weights alone are 16.6 GB, and they have to sit in the part of unified memory the GPU is allowed to use. By default macOS gives the GPU roughly two-thirds to three-quarters of RAM. That's about 16 GB on a 24 GB machine, which is just short, and a 16 GB Mac has no chance at all. On 24 GB you can raise the limit with <code>sudo sysctl iogpu.wired_limit_mb=…</code>, but you'll be running with nothing to spare. Treat 32 GB as the real floor.</p>
-<p>There are two other ways to run it:</p>
-<ul>
-  <li><strong>NVIDIA instead of a Mac.</strong> A 24 GB GPU (RTX 3090/4090 class or better) with Docker and the NVIDIA container toolkit runs the same server. Point the demo at it with <code>OPENJEV_BASE_URL</code>.</li>
-  <li><strong>No model at all.</strong> Every example takes <code>--mock</code>, which starts an offline mock of the API with the real request and response shapes. It answers by keyword overlap, so it's good for learning the API, not for judging quality. It runs on any machine with Python 3.10 or later.</li>
-</ul>
-
-<p>Throughput is the other half. On one RTX PRO 6000 using 38% of the card, OpenJev did <strong>57 decisions per second</strong> at 64 concurrent requests, with p95 latency around 1.1 s. The Mac backend handles one read at a time, about 4 req/s under load. That's fine for a developer loop or a small team, but not for serving production.</p>
-<p>If you don't want to run anything, <a href="https://codiv.ai">Codiv</a> hosts OpenJev with a free allowance of 100M System One tokens, and the API is the same.</p>
-
-<!-- ============================================================ -->
-<h2 id="cicd">From demo decisions to enterprise ones</h2>
-<p>The out-of-the-box examples are deliberately simple. The OpenJev README triages a support message ("is it urgent, which team, how upset are they"). TypeSafe shows churn classification, a bot playing Doom and a Wikipedia-racing agent. They show the three primitives well, but they aren't what keeps a platform team up at night. <a href="#enterprise">Further down</a> I work through three that do, with code.</p>
+<h3 id="cicd">The decisions enterprises already make</h3>
+<p>The out-of-the-box examples are deliberately simple. The OpenJev README triages a support message ("is it urgent, which team, how upset are they"). TypeSafe shows churn classification, a bot playing Doom and a Wikipedia-racing agent. They show the three primitives well, but they aren't what keeps a platform team up at night. I pick three of them for the <a href="#enterprise">What</a> and <a href="#how">How</a> parts.</p>
 <p>Put an automation layer on top of CI and CD and the decisions look like this. Every one of them is currently either a brittle rule, an LLM call we wait several seconds for, or a person:</p>
 <div class="table-scroll"><table>
   <thead><tr><th>Stage</th><th>Decision</th><th>Primitive</th><th>What goes in the state</th></tr></thead>
@@ -337,9 +291,36 @@ OPENJEV_BACKEND=mlx python -m openjev     # http://127.0.0.1:8080</code></pre></
   <li><strong>The decisions are small enough to run on every event.</strong> At 100 ms and fractions of a penny each, you can gate every PR and every build, not a sampled few.</li>
   <li><strong>Irreversible actions still need a person or a System 2 check</strong>: production data migrations, anything with a regulatory sign-off.</li>
 </ul>
+<h3 id="cost">What it's worth</h3>
+<p>Here's a worked example that's easy to adjust. Take an automation layer making <strong>10,000 decisions a day</strong> across the pipeline stages above. Each decision sends about <strong>2,000 tokens of state</strong>: a diff summary, a log excerpt, some metadata. An LLM answering the same questions as JSON writes about <strong>300 tokens</strong>, and that's before any reasoning trace, which can easily be ten times that.</p>
+<p>Change the inputs and the chart updates. It uses a log scale, because the gap is several orders of magnitude.</p>
 
-<!-- ============================================================ -->
-<h2 id="bpa">What it means for business process automation</h2>
+<div class="calc" id="calc">
+  <div class="calc-inputs">
+    <div><label for="inDecisions">Decisions / day</label><input id="inDecisions" type="number" min="1" step="1000" value="10000"></div>
+    <div><label for="inTokens">Input tokens each</label><input id="inTokens" type="number" min="1" step="100" value="2000"></div>
+    <div><label for="inOut">LLM output tokens</label><input id="inOut" type="number" min="0" step="100" value="300"></div>
+    <div><label for="inGpu">GPU $/hour (assumed)</label><input id="inGpu" type="number" min="0" step="0.25" value="2"></div>
+  </div>
+  <div class="legend" aria-hidden="true"><span class="l-s2">System 2 (LLM API)</span><span class="l-s1">System 1</span></div>
+  <svg id="costChart" viewBox="0 0 700 330" role="img" aria-label="Monthly cost by option, log scale"></svg>
+  <p class="headline-num" id="headline"></p>
+</div>
+
+<div class="table-scroll"><table id="costTable">
+  <thead><tr><th>Option</th><th class="num">Price basis</th><th class="num">Per month</th><th class="num">Per 1,000 decisions</th></tr></thead>
+  <tbody></tbody>
+</table></div>
+<p class="small muted">Claude list prices per million tokens (input / output): Fable 5.1 $10 / $50, Opus 5 $5 / $25, Sonnet 5 $2 / $10, Haiku 4.5 $1 / $5, from <a href="https://www.anthropic.com/pricing#api">Anthropic's pricing</a>, excluding caching and batch discounts. Jev is $0.042 per million input tokens with free output, per <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">TypeSafe's launch post</a>. The self-hosted row is an <em>assumption</em>: a rented 48–96 GB GPU at the hourly rate you enter, running all month, with one extra GPU per ~50 decisions/second at 5× peak-to-average. Enter your own rate. Codiv's free tier and a Mac you already own are effectively $0 at this volume, so they're left off the chart.</p>
+
+<p>What the numbers say at the default volume:</p>
+<ul>
+  <li><strong>Hosted Jev is roughly 400× cheaper than a frontier LLM and 40× cheaper than the smallest Claude.</strong> Most of the saving is output tokens, because the answer is a single token per question and it isn't charged for. At about $25 a month, it's a rounding error, provided you're happy to send the data to TypeSafe.</li>
+  <li><strong>Self-hosting is a fixed cost, not a per-token one, and at low volume it isn't the cheap option.</strong> A rented GPU running all month costs more than Haiku at 10,000 decisions a day. Try 100,000 decisions a day and it beats every LLM on the list. Against hosted Jev it only breaks even at around half a million decisions a day, close to what one card can serve.</li>
+  <li><strong>So the case for OpenJev isn't price, it's control.</strong> The data never leaves your network, nobody can deprecate the model under you, and a Mac or a GPU you already own costs you only the electricity.</li>
+  <li><strong>Latency is a cost too.</strong> A pipeline that waits 5–30 s for an LLM on every gate spends that in runner minutes and developer time. At ~100 ms the gate stops being something anyone notices.</li>
+</ul>
+<h3 id="bpa">The business case: process automation</h3>
 <p>Business process automation has always hit the same wall. The process diagram is full of decision diamonds, and each diamond needs either a hard rule (which breaks on the first messy input) or a person (who becomes the bottleneck). LLMs made the fuzzy diamonds possible, but at a latency and price that pushed them into batch jobs and pilots.</p>
 <p>System One models change the economics of the diamond itself:</p>
 <ul>
@@ -351,8 +332,50 @@ OPENJEV_BACKEND=mlx python -m openjev     # http://127.0.0.1:8080</code></pre></
 </ul>
 <p>The catch is governance. A process that decides in 100 ms can make a lot of bad decisions very quickly. You need evaluation sets per decision, calibration checks, drift monitoring and a named owner for each threshold. That's the same discipline we'd apply to any model in production, but people will be tempted to skip it because each call feels so cheap.</p>
 
-<!-- ============================================================ -->
-<h2 id="graphs">Where it fits in agent graphs</h2>
+<!-- ============================ WHAT ============================ -->
+<h2 class="part-h" id="what"><span class="part-k">What</span>Jev, the alternatives, and three use cases</h2>
+<p class="part-intro">What Jev is and how it differs from an LLM, the open alternatives, where a System One read sits in an agent graph, and the three use cases I'd start with.</p>
+<h3 id="vs-llm">Jev vs standard LLMs</h3>
+<p>TypeSafe <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">launched Jev</a> as "the first System One model". You send it a state (any unstructured text, and with OpenJev images too) plus a set of typed questions. It returns each answer with a probability and a confidence, and it generates no prose at all. TypeSafe says it trains Jev with <em>Reinforcement Learning for Calibrated Decisions</em> (RLCD), so that the probabilities mean what they say.</p>
+<div class="table-scroll"><table>
+  <thead><tr><th></th><th>Standard LLM</th><th>Jev (System One)</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Output</strong></td><td>A string, possibly JSON if you ask nicely or use constrained decoding</td><td>Typed values: <code>noul</code> (P(yes)), <code>choice</code>, <code>score</code></td></tr>
+    <tr><td><strong>Off-schema answers</strong></td><td>Possible. You validate, retry and repair</td><td>Impossible by construction, because only the label tokens are scored</td></tr>
+    <tr><td><strong>Confidence</strong></td><td>Self-reported if you ask, and usually overconfident</td><td>Read from the model's own distribution on every answer</td></tr>
+    <tr><td><strong>Many questions</strong></td><td>Sequential, and earlier answers bias later ones</td><td>Answered in parallel and in isolation against the same state</td></tr>
+    <tr><td><strong>Latency (vendor figures)</strong></td><td>3–329 s for frontier models on TypeSafe's workflow evals</td><td>70–500 ms end to end</td></tr>
+    <tr><td><strong>Price (list)</strong></td><td>$1–$10 /MTok in, $5–$50 /MTok out for Claude today</td><td>$0.042 /MTok in, and output is free</td></tr>
+    <tr><td><strong>Can it reason, plan, write?</strong></td><td>Yes. That's what it's for</td><td>No. It decides</td></tr>
+  </tbody>
+</table></div>
+<div class="callout">
+  <p><strong>A note on "zero hallucinations".</strong> TypeSafe's launch post claims a 0% hallucination rate. That means zero <em>type</em> errors: you can't get back a label that doesn't exist. The model can still pick the wrong label. The useful difference is that it tells you how sure it is, so you can put a threshold in front of the answer. Its <a href="https://evals.typesafe.ai/">workflow evals</a> quote 193× faster and 444× cheaper, and TypeSafe itself says those numbers are at the high end of what to expect. I'd treat them as vendor numbers and measure my own.</p>
+</div>
+<h3 id="open">Jev vs the open variants</h3>
+<p>Jev is closed weights and API only. Within days of the launch, people started rebuilding the idea in the open. The rebuilds fall into four groups:</p>
+<ol>
+  <li><strong>Wire-compatible servers on a big open model.</strong> <a href="https://github.com/razorback16/openjev">OpenJev</a>, which I've forked <a href="https://github.com/SteFletcher/openjev">here</a>, is one. It runs Google/NVIDIA's DiffusionGemma, a <em>diffusion</em> language model that denoises a whole canvas of tokens at once. OpenJev leaves one masked slot per question and reads the probability distribution for every slot in a single pass. It speaks Jev's API, so TypeSafe's own SDK works against it unchanged.</li>
+  <li><strong>Logit readers on a frozen small model.</strong> These take an ordinary autoregressive model (Qwen 4B, for example) and read the next-token probabilities of the label tokens. They're cheap and they run on a laptop, but the probabilities are relative, not calibrated.</li>
+  <li><strong>Small models fine-tuned for decisions.</strong> These are trained or given a decision head so they answer in Jev's shape. Some are small enough to run on a CPU.</li>
+  <li><strong>Structured-output libraries.</strong> <a href="https://github.com/dottxt-ai/outlines">Outlines</a>, <a href="https://github.com/567-labs/instructor">Instructor</a> and <a href="https://github.com/stanfordnlp/dspy">DSPy</a> put a typed interface on any LLM. You still get System 2 cost and latency, just with better manners.</li>
+</ol>
+<div class="table-scroll"><table>
+  <thead><tr><th>Project</th><th>Approach</th><th>Base model</th><th>Weights</th><th>Runs on</th><th>Calibrated?</th></tr></thead>
+  <tbody>
+    <tr><td><a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">Jev</a></td><td>Trained System One model (RLCD)</td><td>Undisclosed</td><td>Closed</td><td>TypeSafe API</td><td>Claimed, by design</td></tr>
+    <tr><td><a href="https://github.com/razorback16/openjev">OpenJev</a></td><td>Diffusion read-out, Jev wire API</td><td>DiffusionGemma 26B-A4B</td><td>Apache-2.0</td><td>24 GB NVIDIA GPU or 16 GB Mac</td><td>Model's own distribution, not RLCD-trained</td></tr>
+    <tr><td>openjev-sglang</td><td>Jev API on SGLang</td><td>Qwen3.6-35B-A3B</td><td>Open</td><td>B200-class GPU</td><td>Says it isn't</td></tr>
+    <tr><td>SemIf/openjev</td><td>Frozen logit reader</td><td>Qwen3.5-4B</td><td>MIT</td><td>RTX 3090-class GPU</td><td>Relative probabilities</td></tr>
+    <tr><td>mini-jev</td><td>Frozen logit reader</td><td>Qwen3-4B</td><td>MIT</td><td>~8.5 GB, Mac or CUDA</td><td>Says it isn't</td></tr>
+    <tr><td>kev</td><td>Fine-tuned, Jev schema</td><td>Qwen3.5 0.8B / 4B / 9B</td><td>Open</td><td>Self-hosted GPU</td><td>Unstated</td></tr>
+    <tr><td>Laya</td><td>Decision head on an encoder</td><td>ModernBERT-large (421M)</td><td>Apache-2.0</td><td>T4 (~35 ms) or CPU</td><td>ECE 0.081 after temperature fitting</td></tr>
+    <tr><td>NanoJev</td><td>Trained from scratch</td><td>Own, 0.6B</td><td>MIT</td><td>CUDA GPU</td><td>Unstated</td></tr>
+  </tbody>
+</table></div>
+<p class="small muted">The rows other than Jev and OpenJev are summarised from the community list at <a href="https://systemonemodels.org/examples/alternatives/">systemonemodels.org</a>. I haven't run them myself.</p>
+<p>My take: <strong>nobody outside TypeSafe knows how to do RLCD</strong>, because it hasn't been described in enough detail to copy. So every open variant gives you the <em>shape</em> of Jev (typed answers, parallel questions, a probability on everything). None of them gives you Jev's calibration guarantee for free. OpenJev is the most complete of the lot. It has the same wire API, a strong 26B model underneath, images, and an OpenAI-compatible chat endpoint from the same weights. Its confidence comes from a real distribution rather than a number the model makes up. Even so, if you're going to act on thresholds you should check its calibration on your own data. More on that under <a href="#caveats">caveats</a>.</p>
+<h3 id="graphs">Where it fits in agent graphs</h3>
 <p>Most serious agent systems I see now are graphs: <a href="https://langchain-ai.github.io/langgraph/">LangGraph</a>, <a href="https://google.github.io/adk-docs/">Google's ADK</a> or a home-grown state machine. The <em>nodes</em> do the work and the <em>edges</em> decide what happens next. Today both jobs usually go to an LLM, which means every edge in the graph costs seconds.</p>
 <p>My view is simple: <strong>System 2 models belong in the nodes, and System 1 models belong on the edges.</strong> These are the places a System One read fits:</p>
 <ul>
@@ -472,66 +495,12 @@ flowchart TD
 </figure>
 <p>Two things follow from this. First, the graph gets <strong>faster and cheaper in proportion to how many edges it has</strong>, which is usually more than the number of nodes. Second, the control flow becomes <strong>inspectable</strong>. Each branch was taken because a probability crossed a threshold you set, not because an LLM happened to write the word "approve".</p>
 <p>OpenJev also serves an OpenAI-compatible <code>/v1/chat/completions</code> from the same weights, so a small graph can run both its System 1 edges and its lighter System 2 nodes on one local model. I'd still use a frontier model for the hard node, like the review-and-fix agent above.</p>
-<p>The next section works through three more graphs in this shape, with code you can run.</p>
-
-<!-- ============================================================ -->
-<h2 id="enterprise">Three enterprise problems, worked through</h2>
-<p>The CI/CD table above is the broad picture. These are the three problems I'd pick first in most organisations, because each one is currently either expensive, leaky or done on a sample. The code comes at two levels. <a href="https://github.com/SteFletcher/openjev/tree/main/examples"><code>examples/</code></a> has a quick demo of each that uses only the standard library and runs offline with <code>--mock</code>. <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked"><code>examples/worked/</code></a> has the worked implementations shown below. They use TypeSafe's own SDK for the System One reads, <a href="https://langchain-ai.github.io/langgraph/">LangGraph</a> for the graphs and the Anthropic SDK for the Claude calls. Every block has a copy button, and every diagram can be copied as an image, as SVG or as Mermaid.</p>
-<div class="callout blue">
-  <p>The code blocks on this page are copied from the repo by a script, and a test fails if the two drift apart. The repo's tests run every worked example end to end against a fake System One server and a fake Claude. That proves the plumbing, not the model's accuracy. Point the examples at a real OpenJev before you judge the answers, and build a labelled set for each decision before you trust a threshold.</p>
-</div>
-
-<h3 id="ex-setup">Setting up once</h3>
-<p>One client serves all three examples. TypeSafe's SDK talks to OpenJev unchanged, so moving between Jev, hosted OpenJev and OpenJev on your own GPU is one environment variable, not a code change.</p>
-<div class="code"><div class="code-head"><span>terminal</span><button class="copy" type="button">Copy</button></div><pre><code class="language-bash">git clone https://github.com/SteFletcher/openjev &amp;&amp; cd openjev
-pip install -e '.[examples]'          # typesafe-sdk, langgraph, anthropic
-
-# pick a System One backend
-export TYPESAFE_BASE_URL=http://127.0.0.1:8080       # OpenJev on this machine
-# export TYPESAFE_BASE_URL=https://api.codiv.ai      # hosted OpenJev
-# export TYPESAFE_BASE_URL=https://api.typesafe.ai   # Jev
-export TYPESAFE_API_KEY=...          # any value for a local server without auth
-export ANTHROPIC_API_KEY=...         # for the Claude (System 2) nodes</code></pre></div>
-<!-- snippet:s1-client examples/worked/common/s1.py -->
-<div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/common/s1.py">examples/worked/common/s1.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python"># TYPESAFE_BASE_URL  https://api.typesafe.ai  -&gt; Jev
-#                    https://api.codiv.ai     -&gt; hosted OpenJev
-#                    http://127.0.0.1:8080    -&gt; OpenJev on your own hardware (the default)
-# TYPESAFE_API_KEY   the SDK requires one; any value works for a local server without auth
-def client() -&gt; TypeSafeClient:
-    return TypeSafeClient(
-        base_url=os.environ.get("TYPESAFE_BASE_URL", "http://127.0.0.1:8080"),
-        api_key=os.environ.get("TYPESAFE_API_KEY", "local"),
-        model=os.environ.get("TYPESAFE_MODEL", "jev-latest"),  # OpenJev accepts Jev's name as an alias
-    )</code></pre></div>
-<!-- /snippet -->
-<h3 id="ex-evals">1. Evals: a judge that knows when it's unsure</h3>
-<p><strong>How it's done today.</strong> Most teams grade LLM output with another LLM. The judge reads the case, writes a paragraph of reasoning and gives a score out of five. It works, but it takes seconds per case and costs real money, so it runs nightly on a sample. The criteria bleed into each other: an answer that reads well gets marked as faithful too. The score is an integer the model made up, and every so often the JSON doesn't parse.</p>
-<p><strong>With a System One judge</strong> the rubric becomes a set of typed questions, answered in parallel and in isolation against the same case:</p>
-<p class="step"><span class="step-n">1</span><span><strong>Write the rubric as questions.</strong> Each criterion is a <code>noul</code> or a <code>score</code> in Jev's wire format, so it works with any client.</span></p>
-<!-- snippet:evals-rubric examples/worked/evals/rubric.py -->
-<div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/evals/rubric.py">examples/worked/evals/rubric.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python">RUBRIC = {
-    "faithful": {
-        "type": "noul",
-        "instructions": "Every factual claim in the answer is supported by the context.",
-        "criteria": {"true": "all claims appear in or follow directly from the context",
-                     "false": "the answer adds, changes or contradicts facts in the context"},
-    },
-    "answers_question": {
-        "type": "noul",
-        "instructions": "The answer directly addresses the user's question.",
-    },
-    "personal_data": {
-        "type": "noul",
-        "instructions": "The answer discloses personal data about an identifiable individual, "
-                        "such as a name together with an email address or phone number.",
-    },
-    "quality": {
-        "type": "score",
-        "instructions": "Overall quality as a reply from an internal policy assistant.",
-        "criteria": ["unusable", "poor", "acceptable", "good", "excellent"],
-    },
-}</code></pre></div>
-<!-- /snippet -->
+<p>The three use cases below are graphs of the same shape.</p>
+<h3 id="enterprise">Three use cases to start with</h3>
+<p>The CI/CD table in the Why part is the broad picture. These are the three problems I'd pick first in most organisations, because each one is currently either expensive, leaky or done on a sample. For each: why today's approach hurts, what changes with a System One read, and the graph it becomes. The code for each is in the <a href="#how">How</a> part.</p>
+<h4 id="ex-evals">Evals: a judge that knows when it's unsure</h4>
+<p><strong>Why: how it's done today.</strong> Most teams grade LLM output with another LLM. The judge reads the case, writes a paragraph of reasoning and gives a score out of five. It works, but it takes seconds per case and costs real money, so it runs nightly on a sample. The criteria bleed into each other: an answer that reads well gets marked as faithful too. The score is an integer the model made up, and every so often the JSON doesn't parse.</p>
+<p><strong>What changes: with a System One judge</strong> the rubric becomes a set of typed questions, answered in parallel and in isolation against the same case.</p>
 <ul>
   <li><strong>No halo effect.</strong> Each criterion is its own read, so "well written" can't lift "faithful".</li>
   <li><strong>A probability, not a grade.</strong> P ≥ 0.8 passes, P ≤ 0.2 fails, and anything in between goes to a person. The unsure queue is where human review time pays off most.</li>
@@ -598,7 +567,244 @@ flowchart TD
   </div>
   <figcaption>Demo: <a href="https://github.com/SteFletcher/openjev/blob/main/examples/evals.py"><code>examples/evals.py</code></a>; worked: <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/evals"><code>examples/worked/evals/</code></a>. Part 1 grades a five-case eval set for an internal policy assistant: a good answer, a made-up policy, an unnecessary refusal, an answer that leaks a colleague's email, and a hedged answer that goes to a person. Part 2 runs the same judge as this guard.</figcaption>
 </figure>
-<h4>Implementing it</h4>
+<p class="more"><a href="#how-evals">How to build it →</a></p>
+<h4 id="ex-pii">Personal data in logs</h4>
+<p><strong>Why: how it's done today.</strong> A DLP rule set and a pile of regexes. They're good at the structured cases: email addresses, card numbers that pass a Luhn check, cloud keys. They miss the ones that turn into incidents: a customer's name and address pasted into a support note, a health condition in a claims comment, a search query that says more than it should. Scanning every line with an LLM is unaffordable, and it means shipping raw logs to a third party.</p>
+<p><strong>What changes: with a System One read</strong> every line gets four questions that match the categories your privacy policy already uses.</p>
+<ul>
+  <li><strong>Regex first, then the model.</strong> The cheap deterministic scan still runs and still cuts exact spans. The read covers the free text the patterns can't see into.</li>
+  <li><strong>Policy, not a verdict.</strong> A regex hit or P ≥ 0.8 means redact before shipping. P from 0.3 to 0.8 means quarantine for a person. Below that, forward. The thresholds belong to the DPO, not the model.</li>
+  <li><strong>It stays on your network.</strong> This is the example where OpenJev on your own GPU isn't optional. Sending logs to a hosted API to find out whether they contain personal data is itself the disclosure.</li>
+</ul>
+<figure>
+  <div class="diagram">
+    <script type="text/plain" class="mermaid-src">
+flowchart TD
+  subgraph net["Your network · OpenJev on your own GPU"]
+    logs(["Application & service logs"]) --> rx["Regex scan<br/>email · card (Luhn) · IP · cloud keys"]
+    rx --> read["System 1 · PII read<br/>person? special category? secret? card?"]
+    read -->|clean| fwd["Forward unchanged"]
+    read -->|"regex hit, or P ≥ 0.8"| red["Redact<br/>spans or field"]
+    read -->|"0.3 ≤ P < 0.8"| q["Quarantine<br/>privacy review"]
+  end
+  fwd --> siem[("Log platform / SIEM")]
+  red --> siem
+  classDef s1 fill:#fdeee7,stroke:#eb6834,stroke-width:2px,color:#16161a
+  classDef s2 fill:#e8f1fb,stroke:#2a78d6,stroke-width:2px,color:#16161a
+  class read s1
+</script>
+    <svg viewBox="0 0 440 470" role="img" aria-labelledby="piT piD">
+      <title id="piT">A log pipeline that removes personal data before it leaves the network</title>
+      <desc id="piD">Inside the network, application logs pass a regex scan for emails, cards, IP addresses and keys, then a System 1 read for person, special category, secret and card data. Clean lines are forwarded. Lines with a regex hit or high probability are redacted and then forwarded. Unsure lines are quarantined for privacy review. Only forwarded lines reach the log platform outside the network.</desc>
+      <rect x="6" y="4" width="428" height="352" rx="12" fill="none" stroke="var(--text-3)" stroke-width="1.2" stroke-dasharray="5 5"/>
+      <text class="el" x="18" y="22">your network · OpenJev on your own GPU</text>
+      <rect class="n-nt" x="90" y="32" width="260" height="46" rx="10"/>
+      <text class="t" x="220" y="53" text-anchor="middle">Application &amp; service logs</text>
+      <text class="ts" x="220" y="70" text-anchor="middle">free-text fields included</text>
+      <path class="e" d="M220 78 V98"/>
+      <rect class="n-nt" x="70" y="100" width="300" height="50" rx="10"/>
+      <text class="t" x="220" y="122" text-anchor="middle">Regex scan</text>
+      <text class="ts" x="220" y="140" text-anchor="middle">email · card (Luhn) · IP · cloud keys</text>
+      <path class="e" d="M220 150 V170"/>
+      <rect class="n-s1" x="50" y="172" width="340" height="62" rx="10"/>
+      <text class="t" x="220" y="195" text-anchor="middle">System 1 · PII read (~100 ms)</text>
+      <text class="ts" x="220" y="214" text-anchor="middle">person? special category (Art. 9)?</text>
+      <text class="ts" x="220" y="228" text-anchor="middle">secret? card or bank details?</text>
+      <path class="e" d="M90 234 V270"/>
+      <path class="e" d="M220 234 V270"/>
+      <path class="e" d="M350 234 V270"/>
+      <text class="el" x="96" y="256">clean</text>
+      <text class="el" x="226" y="256">hit, or P ≥ 0.8</text>
+      <text class="el" x="356" y="256">0.3–0.8</text>
+      <rect class="n-nt" x="20" y="272" width="130" height="50" rx="10"/>
+      <text class="t" x="85" y="294" text-anchor="middle">Forward</text>
+      <text class="ts" x="85" y="312" text-anchor="middle">unchanged</text>
+      <rect class="n-nt" x="160" y="272" width="120" height="50" rx="10"/>
+      <text class="t" x="220" y="294" text-anchor="middle">Redact</text>
+      <text class="ts" x="220" y="312" text-anchor="middle">spans or field</text>
+      <rect class="n-nt" x="290" y="272" width="130" height="50" rx="10"/>
+      <text class="t" x="355" y="294" text-anchor="middle">Quarantine</text>
+      <text class="ts" x="355" y="312" text-anchor="middle">privacy review</text>
+      <path class="e" d="M85 322 V384"/>
+      <path class="e" d="M220 322 V340 H120 V384"/>
+      <rect class="n-nt" x="20" y="386" width="200" height="54" rx="10"/>
+      <text class="t" x="120" y="409" text-anchor="middle">Log platform / SIEM</text>
+      <text class="ts" x="120" y="428" text-anchor="middle">SaaS is fine now</text>
+    </svg>
+  </div>
+  <figcaption>Demo: <a href="https://github.com/SteFletcher/openjev/blob/main/examples/pii_in_logs.py"><code>examples/pii_in_logs.py</code></a>; worked: <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/pii"><code>examples/worked/pii/</code></a>. Eight log lines: an email and IP in a failed login, a customer's name and address in a support note, a health condition in a claims note, a card number, an AWS secret, an ambiguous medical search query, and two clean lines. Regex alone catches three of the six that carry personal data or secrets. The read is there for the other three.</figcaption>
+</figure>
+<p class="more"><a href="#how-pii">How to build it →</a></p>
+<h4 id="ex-routing">Model routing for log events</h4>
+<p><strong>Why: how it's done today.</strong> Either everything goes to one model, usually a big one because nobody wants to be blamed for the miss, or a static rule maps severity to model, or an LLM decides which LLM to call. That last one costs seconds and money per event before any work gets done.</p>
+<p><strong>What changes: with a System One router</strong> one read decides whether an event needs a model at all and how much model it needs. A second read checks the answer and moves the event up a tier if it falls short.</p>
+<figure>
+  <div class="diagram">
+    <script type="text/plain" class="mermaid-src">
+flowchart TD
+  ev(["Log & alert stream"]) --> route["System 1 · route read<br/>actionable? complexity 0–4? needs code?"]
+  route -->|not actionable| drop["Drop · no model"]
+  route -->|"tier by complexity"| tiers
+  subgraph tiers["Claude, cheapest capable tier"]
+    direction LR
+    haiku["Haiku 4.5<br/>routine"] ~~~ sonnet["Sonnet 5<br/>one service"] ~~~ opus["Opus 5<br/>root cause"] ~~~ fable["Fable 5.1<br/>security"]
+  end
+  tiers --> check["System 1 · check read<br/>names a cause and a next step?"]
+  check -->|yes| done(["Done"])
+  check -.->|"no: escalate one tier"| tiers
+  classDef s1 fill:#fdeee7,stroke:#eb6834,stroke-width:2px,color:#16161a
+  classDef s2 fill:#e8f1fb,stroke:#2a78d6,stroke-width:2px,color:#16161a
+  class route,check s1
+  class haiku,sonnet,opus,fable s2
+</script>
+    <svg viewBox="0 0 440 440" role="img" aria-labelledby="rtT rtD">
+      <title id="rtT">Routing log events to the cheapest capable model</title>
+      <desc id="rtD">Log and alert events go to a System 1 route read. Non-actionable events are dropped with no model called. The rest go to Haiku, Sonnet, Opus or Fable by complexity. A System 1 check read then asks whether the analysis names a cause and next step. If yes, done. If not, the event escalates one tier and is analysed again.</desc>
+      <rect class="n-nt" x="90" y="10" width="260" height="46" rx="10"/>
+      <text class="t" x="220" y="31" text-anchor="middle">Log &amp; alert stream</text>
+      <text class="ts" x="220" y="48" text-anchor="middle">100k events a day</text>
+      <path class="e" d="M220 56 V78"/>
+      <rect class="n-s1" x="40" y="80" width="360" height="62" rx="10"/>
+      <text class="t" x="220" y="103" text-anchor="middle">System 1 · route read (~100 ms)</text>
+      <text class="ts" x="220" y="122" text-anchor="middle">actionable? complexity 0–4? needs code?</text>
+      <text class="ts" x="220" y="136" text-anchor="middle">low confidence → err one tier up</text>
+      <path class="e" d="M48 142 V188"/>
+      <path class="e" d="M136 142 V188"/>
+      <path class="e" d="M220 142 V188"/>
+      <path class="e" d="M304 142 V188"/>
+      <path class="e" d="M392 142 V188"/>
+      <rect class="n-nt" x="8" y="190" width="80" height="50" rx="9"/>
+      <text class="t" x="48" y="212" text-anchor="middle">Drop</text>
+      <text class="ts" x="48" y="229" text-anchor="middle">no model</text>
+      <rect class="n-s2" x="96" y="190" width="80" height="50" rx="9"/>
+      <text class="t" x="136" y="212" text-anchor="middle">Haiku</text>
+      <text class="ts" x="136" y="229" text-anchor="middle">routine</text>
+      <rect class="n-s2" x="180" y="190" width="80" height="50" rx="9"/>
+      <text class="t" x="220" y="212" text-anchor="middle">Sonnet</text>
+      <text class="ts" x="220" y="229" text-anchor="middle">one service</text>
+      <rect class="n-s2" x="264" y="190" width="80" height="50" rx="9"/>
+      <text class="t" x="304" y="212" text-anchor="middle">Opus</text>
+      <text class="ts" x="304" y="229" text-anchor="middle">root cause</text>
+      <rect class="n-s2" x="352" y="190" width="80" height="50" rx="9"/>
+      <text class="t" x="392" y="212" text-anchor="middle">Fable</text>
+      <text class="ts" x="392" y="229" text-anchor="middle">security</text>
+      <path class="e" d="M136 240 V260 H220 V298"/>
+      <path class="e" d="M220 240 V298"/>
+      <path class="e" d="M304 240 V260 H220"/>
+      <path class="e" d="M392 240 V260 H300" style="marker-end:none"/>
+      <rect class="n-s1" x="80" y="300" width="280" height="58" rx="10"/>
+      <text class="t" x="220" y="323" text-anchor="middle">System 1 · check read</text>
+      <text class="ts" x="220" y="342" text-anchor="middle">names a cause and a next step?</text>
+      <path class="e" d="M220 358 V388"/>
+      <text class="el" x="226" y="378">yes</text>
+      <rect class="n-nt" x="150" y="390" width="140" height="40" rx="10"/>
+      <text class="t" x="220" y="415" text-anchor="middle">Done</text>
+      <path class="e" d="M80 329 H24 V250 H94" style="stroke-dasharray:4 4"/>
+      <text class="el" x="30" y="280">no: escalate</text>
+      <text class="el" x="30" y="294">one tier</text>
+    </svg>
+  </div>
+  <figcaption>Demo: <a href="https://github.com/SteFletcher/openjev/blob/main/examples/model_routing.py"><code>examples/model_routing.py</code></a>; worked: <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/routing"><code>examples/worked/routing/</code></a>. Six events: a healthcheck (dropped), a disk warning (Haiku), a Java stack trace (Sonnet, because it needs code), an OOM-killed cron job (Haiku's answer fails the check, so Sonnet takes it), a cross-service latency incident (Opus), and a suspected admin account takeover (Fable).</figcaption>
+</figure>
+<p>This is where the money is. The mix of events is my assumption, but the prices are list prices. At 100,000 events a day, with 60% needing no model, 30% Haiku, 7% Sonnet, 2.5% Opus and 0.5% Fable, routing costs about <strong>$210 a day against $2,850 for sending everything to Opus 5</strong>. That's roughly 13× cheaper, or around $79k a month. The System One reads themselves come to about $1.50 a day at Jev's price. The less obvious win is that the security incident goes to the strongest model rather than whatever the default happens to be.</p>
+
+<p class="more"><a href="#how-routing">How to build it →</a></p>
+
+<!-- ============================ HOW ============================ -->
+<h2 class="part-h" id="how"><span class="part-k">How</span>Run it, then build the use cases</h2>
+<p class="part-intro">Running the model, a one-off setup, then each use case step by step. Every code block has a copy button.</p>
+<div class="callout blue">
+  <p>The code comes at two levels. <a href="https://github.com/SteFletcher/openjev/tree/main/examples"><code>examples/</code></a> has a quick demo of each use case that uses only the standard library and runs offline with <code>--mock</code>. <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked"><code>examples/worked/</code></a> has the implementations shown here: TypeSafe's own SDK for the System One reads, <a href="https://langchain-ai.github.io/langgraph/">LangGraph</a> for the graphs and the Anthropic SDK for the Claude calls. The code blocks are copied from the repo by a script, and a test fails if the two drift apart. The repo's tests run every worked example end to end against a fake System One server and a fake Claude. That proves the plumbing, not the model's accuracy. Point the examples at a real OpenJev before you judge the answers, and build a labelled set for each decision before you trust a threshold.</p>
+</div>
+<h3 id="local">Run it locally, and how big it is</h3>
+<p>This is where the open variants earn their keep. Jev is a hosted API, but OpenJev fits on a single workstation GPU or a decent Mac.</p>
+<p>The model is <a href="https://huggingface.co/nvidia/diffusiongemma-26B-A4B-it-NVFP4">DiffusionGemma 26B-A4B</a>, a diffusion version of Gemma 4 26B released by NVIDIA under Apache-2.0. It's a <strong>mixture of experts</strong> with <strong>25.2B parameters in total, of which 3.8B are active per token</strong>. It needs the memory of a 25B model but does the compute of a ~4B one, and that's why it's quick. It has a 262K-token context and takes text, images and video as input.</p>
+<div class="table-scroll"><table>
+  <thead><tr><th>Build</th><th>Where it runs</th><th class="num">Download / memory</th><th class="num">Latency (3 questions)</th></tr></thead>
+  <tbody>
+    <tr><td><a href="https://huggingface.co/nvidia/diffusiongemma-26B-A4B-it-NVFP4">NVFP4 (4-bit)</a></td><td>NVIDIA GPU via vLLM, in Docker</td><td class="num">~18 GB, 24 GB+ GPU</td><td class="num">94 ms p50 (RTX PRO 6000)</td></tr>
+    <tr><td><a href="https://huggingface.co/mlx-community/diffusiongemma-26B-A4B-it-4bit">MLX 4-bit</a></td><td>Apple silicon, in-process</td><td class="num">~16 GB free memory</td><td class="num">0.2–0.4 s (M3 Ultra), 0.39 s (M4 Max)</td></tr>
+    <tr><td>MLX 8-bit</td><td>Apple silicon</td><td class="num">≈ 27 GB*</td><td class="num">not measured</td></tr>
+    <tr><td>MLX bf16</td><td>Apple silicon, big memory</td><td class="num">≈ 50 GB*</td><td class="num">not measured</td></tr>
+  </tbody>
+</table></div>
+<p class="small muted">* These are my own estimates from the parameter count (25.2B × 1 or 2 bytes, plus overhead), not published figures. The other numbers come from the <a href="https://github.com/razorback16/openjev#run-your-own">OpenJev README</a>.</p>
+<p>On a Mac it really is two commands:</p>
+<div class="code"><div class="code-head"><span>terminal</span><button class="copy" type="button">Copy</button></div><pre><code class="language-bash">pip install -e '.[mlx]'
+OPENJEV_BACKEND=mlx python -m openjev     # http://127.0.0.1:8080</code></pre></div>
+<p>On an NVIDIA box, <code>docker compose up -d</code> pulls a prebuilt image with the patched vLLM. Either way the first start downloads the weights into <code>~/.cache/huggingface</code>, and after that nothing leaves the machine. For regulated data that matters as much as the price does.</p>
+<h4 id="min-spec">Minimum spec for my demo</h4>
+<p>My own demo is a small, dependency-free Python project. It has four scripts, one for each primitive plus a triage pipeline that combines all three, and a script that starts OpenJev on a Mac with the 4-bit MLX weights. This is what you need to run it against the real model:</p>
+<div class="table-scroll"><table>
+  <thead><tr><th></th><th>Minimum</th><th>Comfortable</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Machine</strong></td><td>Apple silicon Mac (any M-series)</td><td>M3 Max / M4 Max or better, which gives 0.2–0.4 s per request</td></tr>
+    <tr><td><strong>Unified memory</strong></td><td><strong>32 GB</strong></td><td>48 GB or more, so the rest of your tools stay open</td></tr>
+    <tr><td><strong>macOS</strong></td><td>14 Sonoma, the oldest MLX supports</td><td>Current release</td></tr>
+    <tr><td><strong>Free disk</strong></td><td>~20 GB: 16.6 GB of weights plus ~0.6 GB of Python environment</td><td>40 GB+ if you want to try the 8-bit build</td></tr>
+    <tr><td><strong>Software</strong></td><td>git, <a href="https://docs.astral.sh/uv/">uv</a> (it fetches Python 3.12)</td><td></td></tr>
+    <tr><td><strong>Network</strong></td><td>One 16.6 GB download on first run, then fully offline</td><td></td></tr>
+  </tbody>
+</table></div>
+<p>Why 32 GB and not 16 or 24? The 4-bit weights alone are 16.6 GB, and they have to sit in the part of unified memory the GPU is allowed to use. By default macOS gives the GPU roughly two-thirds to three-quarters of RAM. That's about 16 GB on a 24 GB machine, which is just short, and a 16 GB Mac has no chance at all. On 24 GB you can raise the limit with <code>sudo sysctl iogpu.wired_limit_mb=…</code>, but you'll be running with nothing to spare. Treat 32 GB as the real floor.</p>
+<p>There are two other ways to run it:</p>
+<ul>
+  <li><strong>NVIDIA instead of a Mac.</strong> A 24 GB GPU (RTX 3090/4090 class or better) with Docker and the NVIDIA container toolkit runs the same server. Point the demo at it with <code>OPENJEV_BASE_URL</code>.</li>
+  <li><strong>No model at all.</strong> Every example takes <code>--mock</code>, which starts an offline mock of the API with the real request and response shapes. It answers by keyword overlap, so it's good for learning the API, not for judging quality. It runs on any machine with Python 3.10 or later.</li>
+</ul>
+
+<p>Throughput is the other half. On one RTX PRO 6000 using 38% of the card, OpenJev did <strong>57 decisions per second</strong> at 64 concurrent requests, with p95 latency around 1.1 s. The Mac backend handles one read at a time, about 4 req/s under load. That's fine for a developer loop or a small team, but not for serving production.</p>
+<p>If you don't want to run anything, <a href="https://codiv.ai">Codiv</a> hosts OpenJev with a free allowance of 100M System One tokens, and the API is the same.</p>
+<h3 id="ex-setup">Set up once</h3>
+<p>One client serves all three examples. TypeSafe's SDK talks to OpenJev unchanged, so moving between Jev, hosted OpenJev and OpenJev on your own GPU is one environment variable, not a code change.</p>
+<div class="code"><div class="code-head"><span>terminal</span><button class="copy" type="button">Copy</button></div><pre><code class="language-bash">git clone https://github.com/SteFletcher/openjev &amp;&amp; cd openjev
+pip install -e '.[examples]'          # typesafe-sdk, langgraph, anthropic
+
+# pick a System One backend
+export TYPESAFE_BASE_URL=http://127.0.0.1:8080       # OpenJev on this machine
+# export TYPESAFE_BASE_URL=https://api.codiv.ai      # hosted OpenJev
+# export TYPESAFE_BASE_URL=https://api.typesafe.ai   # Jev
+export TYPESAFE_API_KEY=...          # any value for a local server without auth
+export ANTHROPIC_API_KEY=...         # for the Claude (System 2) nodes</code></pre></div>
+<!-- snippet:s1-client examples/worked/common/s1.py -->
+<div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/common/s1.py">examples/worked/common/s1.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python"># TYPESAFE_BASE_URL  https://api.typesafe.ai  -&gt; Jev
+#                    https://api.codiv.ai     -&gt; hosted OpenJev
+#                    http://127.0.0.1:8080    -&gt; OpenJev on your own hardware (the default)
+# TYPESAFE_API_KEY   the SDK requires one; any value works for a local server without auth
+def client() -&gt; TypeSafeClient:
+    return TypeSafeClient(
+        base_url=os.environ.get("TYPESAFE_BASE_URL", "http://127.0.0.1:8080"),
+        api_key=os.environ.get("TYPESAFE_API_KEY", "local"),
+        model=os.environ.get("TYPESAFE_MODEL", "jev-latest"),  # OpenJev accepts Jev's name as an alias
+    )</code></pre></div>
+<!-- /snippet -->
+<h4 id="how-evals">Build the eval judge</h4>
+<p>The code is in <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/evals"><code>examples/worked/evals/</code></a>. <a href="#ex-evals">What it does and why</a> is in the What part.</p>
+<p class="step"><span class="step-n">1</span><span><strong>Write the rubric as questions.</strong> Each criterion is a <code>noul</code> or a <code>score</code> in Jev's wire format, so it works with any client.</span></p>
+<!-- snippet:evals-rubric examples/worked/evals/rubric.py -->
+<div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/evals/rubric.py">examples/worked/evals/rubric.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python">RUBRIC = {
+    "faithful": {
+        "type": "noul",
+        "instructions": "Every factual claim in the answer is supported by the context.",
+        "criteria": {"true": "all claims appear in or follow directly from the context",
+                     "false": "the answer adds, changes or contradicts facts in the context"},
+    },
+    "answers_question": {
+        "type": "noul",
+        "instructions": "The answer directly addresses the user's question.",
+    },
+    "personal_data": {
+        "type": "noul",
+        "instructions": "The answer discloses personal data about an identifiable individual, "
+                        "such as a name together with an email address or phone number.",
+    },
+    "quality": {
+        "type": "score",
+        "instructions": "Overall quality as a reply from an internal policy assistant.",
+        "criteria": ["unusable", "poor", "acceptable", "good", "excellent"],
+    },
+}</code></pre></div>
+<!-- /snippet -->
 <p class="step"><span class="step-n">2</span><span><strong>Turn probabilities into a verdict.</strong> The thresholds live in your code, where they can be reviewed, not in the model. The reasons go back to the generator if it gets a second try.</span></p>
 <!-- snippet:evals-judge examples/worked/evals/rubric.py -->
 <div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/evals/rubric.py">examples/worked/evals/rubric.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python">PASS_AT, FAIL_AT = 0.8, 0.2   # P &gt;= 0.8 is a yes, P &lt;= 0.2 a no, anything between goes to a person
@@ -748,9 +954,8 @@ python examples/worked/evals/guard.py "Can I expense a taxi home after working l
     --context "Taxis are reimbursable when travel after 21:00 is required for business reasons and approved in advance by a line manager."</code></pre></div>
 <p><strong>Where to be careful.</strong> A judge is a model too. Check it against human labels (agreement, and whether P = 0.8 really means right 80% of the time) before you put it on the critical path. Where possible, don't let a model judge its own family's output. And for things with a checkable answer, like code or arithmetic, running the tests beats any judge.</p>
 
-<h3 id="ex-pii">2. Personal data in logs</h3>
-<p><strong>How it's done today.</strong> A DLP rule set and a pile of regexes. They're good at the structured cases: email addresses, card numbers that pass a Luhn check, cloud keys. They miss the ones that turn into incidents: a customer's name and address pasted into a support note, a health condition in a claims comment, a search query that says more than it should. Scanning every line with an LLM is unaffordable, and it means shipping raw logs to a third party.</p>
-<p><strong>With a System One read</strong> every line gets four questions that match the categories your privacy policy already uses:</p>
+<h4 id="how-pii">Build the PII filter</h4>
+<p>The code is in <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/pii"><code>examples/worked/pii/</code></a>. <a href="#ex-pii">What it does and why</a> is in the What part.</p>
 <p class="step"><span class="step-n">1</span><span><strong>Ask the questions your privacy policy already asks,</strong> and keep the regexes for the structured cases, where they're exact and give you a span to cut.</span></p>
 <!-- snippet:pii-questions examples/worked/pii/detector.py -->
 <div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/pii/detector.py">examples/worked/pii/detector.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python">QUESTIONS = {
@@ -773,70 +978,6 @@ PATTERNS = {
     "AWS_SECRET": re.compile(r"(?&lt;=AWS_SECRET_ACCESS_KEY=)\S+"),
 }</code></pre></div>
 <!-- /snippet -->
-<ul>
-  <li><strong>Regex first, then the model.</strong> The cheap deterministic scan still runs and still cuts exact spans. The read covers the free text the patterns can't see into.</li>
-  <li><strong>Policy, not a verdict.</strong> A regex hit or P ≥ 0.8 means redact before shipping. P from 0.3 to 0.8 means quarantine for a person. Below that, forward. The thresholds belong to the DPO, not the model.</li>
-  <li><strong>It stays on your network.</strong> This is the example where OpenJev on your own GPU isn't optional. Sending logs to a hosted API to find out whether they contain personal data is itself the disclosure.</li>
-</ul>
-<figure>
-  <div class="diagram">
-    <script type="text/plain" class="mermaid-src">
-flowchart TD
-  subgraph net["Your network · OpenJev on your own GPU"]
-    logs(["Application & service logs"]) --> rx["Regex scan<br/>email · card (Luhn) · IP · cloud keys"]
-    rx --> read["System 1 · PII read<br/>person? special category? secret? card?"]
-    read -->|clean| fwd["Forward unchanged"]
-    read -->|"regex hit, or P ≥ 0.8"| red["Redact<br/>spans or field"]
-    read -->|"0.3 ≤ P < 0.8"| q["Quarantine<br/>privacy review"]
-  end
-  fwd --> siem[("Log platform / SIEM")]
-  red --> siem
-  classDef s1 fill:#fdeee7,stroke:#eb6834,stroke-width:2px,color:#16161a
-  classDef s2 fill:#e8f1fb,stroke:#2a78d6,stroke-width:2px,color:#16161a
-  class read s1
-</script>
-    <svg viewBox="0 0 440 470" role="img" aria-labelledby="piT piD">
-      <title id="piT">A log pipeline that removes personal data before it leaves the network</title>
-      <desc id="piD">Inside the network, application logs pass a regex scan for emails, cards, IP addresses and keys, then a System 1 read for person, special category, secret and card data. Clean lines are forwarded. Lines with a regex hit or high probability are redacted and then forwarded. Unsure lines are quarantined for privacy review. Only forwarded lines reach the log platform outside the network.</desc>
-      <rect x="6" y="4" width="428" height="352" rx="12" fill="none" stroke="var(--text-3)" stroke-width="1.2" stroke-dasharray="5 5"/>
-      <text class="el" x="18" y="22">your network · OpenJev on your own GPU</text>
-      <rect class="n-nt" x="90" y="32" width="260" height="46" rx="10"/>
-      <text class="t" x="220" y="53" text-anchor="middle">Application &amp; service logs</text>
-      <text class="ts" x="220" y="70" text-anchor="middle">free-text fields included</text>
-      <path class="e" d="M220 78 V98"/>
-      <rect class="n-nt" x="70" y="100" width="300" height="50" rx="10"/>
-      <text class="t" x="220" y="122" text-anchor="middle">Regex scan</text>
-      <text class="ts" x="220" y="140" text-anchor="middle">email · card (Luhn) · IP · cloud keys</text>
-      <path class="e" d="M220 150 V170"/>
-      <rect class="n-s1" x="50" y="172" width="340" height="62" rx="10"/>
-      <text class="t" x="220" y="195" text-anchor="middle">System 1 · PII read (~100 ms)</text>
-      <text class="ts" x="220" y="214" text-anchor="middle">person? special category (Art. 9)?</text>
-      <text class="ts" x="220" y="228" text-anchor="middle">secret? card or bank details?</text>
-      <path class="e" d="M90 234 V270"/>
-      <path class="e" d="M220 234 V270"/>
-      <path class="e" d="M350 234 V270"/>
-      <text class="el" x="96" y="256">clean</text>
-      <text class="el" x="226" y="256">hit, or P ≥ 0.8</text>
-      <text class="el" x="356" y="256">0.3–0.8</text>
-      <rect class="n-nt" x="20" y="272" width="130" height="50" rx="10"/>
-      <text class="t" x="85" y="294" text-anchor="middle">Forward</text>
-      <text class="ts" x="85" y="312" text-anchor="middle">unchanged</text>
-      <rect class="n-nt" x="160" y="272" width="120" height="50" rx="10"/>
-      <text class="t" x="220" y="294" text-anchor="middle">Redact</text>
-      <text class="ts" x="220" y="312" text-anchor="middle">spans or field</text>
-      <rect class="n-nt" x="290" y="272" width="130" height="50" rx="10"/>
-      <text class="t" x="355" y="294" text-anchor="middle">Quarantine</text>
-      <text class="ts" x="355" y="312" text-anchor="middle">privacy review</text>
-      <path class="e" d="M85 322 V384"/>
-      <path class="e" d="M220 322 V340 H120 V384"/>
-      <rect class="n-nt" x="20" y="386" width="200" height="54" rx="10"/>
-      <text class="t" x="120" y="409" text-anchor="middle">Log platform / SIEM</text>
-      <text class="ts" x="120" y="428" text-anchor="middle">SaaS is fine now</text>
-    </svg>
-  </div>
-  <figcaption>Demo: <a href="https://github.com/SteFletcher/openjev/blob/main/examples/pii_in_logs.py"><code>examples/pii_in_logs.py</code></a>; worked: <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/pii"><code>examples/worked/pii/</code></a>. Eight log lines: an email and IP in a failed login, a customer's name and address in a support note, a health condition in a claims note, a card number, an AWS secret, an ambiguous medical search query, and two clean lines. Regex alone catches three of the six that carry personal data or secrets. The read is there for the other three.</figcaption>
-</figure>
-<h4>Implementing it</h4>
 <p class="step"><span class="step-n">2</span><span><strong>Decide per line.</strong> A regex hit or a confident read means redact, an unsure read means quarantine, anything else ships.</span></p>
 <!-- snippet:pii-policy examples/worked/pii/detector.py -->
 <div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/pii/detector.py">examples/worked/pii/detector.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python">class PiiDetector:
@@ -900,9 +1041,8 @@ kubectl logs -f deploy/support-api \
   | vector --config vector.toml</code></pre></div>
 <p><strong>Where to be careful.</strong> One GPU does ~57 reads a second, about 5 million lines a day flat out. That's plenty for free-text fields and WARN-and-above, but not for every DEBUG line in a large estate, so point it at the lines that can actually carry free text. It also tells you <em>that</em> a line holds personal data, not <em>where</em>. Redact the whole field, or hand the few flagged lines to a span extractor (an NER model like <a href="https://github.com/urchade/GLiNER">GLiNER</a>, or a System 2 call) to cut precisely.</p>
 
-<h3 id="ex-routing">3. Model routing for log events</h3>
-<p><strong>How it's done today.</strong> Either everything goes to one model, usually a big one because nobody wants to be blamed for the miss, or a static rule maps severity to model, or an LLM decides which LLM to call. That last one costs seconds and money per event before any work gets done.</p>
-<p><strong>With a System One router</strong> one read decides whether an event needs a model at all and how much model it needs. A second read checks the answer and moves the event up a tier if it falls short:</p>
+<h4 id="how-routing">Build the model router</h4>
+<p>The code is in <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/routing"><code>examples/worked/routing/</code></a>. <a href="#ex-routing">What it does and why</a> is in the What part.</p>
 <p class="step"><span class="step-n">1</span><span><strong>Ask what the event needs, and map the answer to a tier in code.</strong> The most likely level picks the model, code work starts at Sonnet, and an unsure read errs one tier up.</span></p>
 <!-- snippet:routing-questions examples/worked/routing/router.py -->
 <div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/routing/router.py">examples/worked/routing/router.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python">ROUTE = {
@@ -938,75 +1078,6 @@ def pick_tier(r):
         tier = min(tier + 1, len(TIERS) - 1)
     return tier</code></pre></div>
 <!-- /snippet -->
-<figure>
-  <div class="diagram">
-    <script type="text/plain" class="mermaid-src">
-flowchart TD
-  ev(["Log & alert stream"]) --> route["System 1 · route read<br/>actionable? complexity 0–4? needs code?"]
-  route -->|not actionable| drop["Drop · no model"]
-  route -->|"tier by complexity"| tiers
-  subgraph tiers["Claude, cheapest capable tier"]
-    direction LR
-    haiku["Haiku 4.5<br/>routine"] ~~~ sonnet["Sonnet 5<br/>one service"] ~~~ opus["Opus 5<br/>root cause"] ~~~ fable["Fable 5.1<br/>security"]
-  end
-  tiers --> check["System 1 · check read<br/>names a cause and a next step?"]
-  check -->|yes| done(["Done"])
-  check -.->|"no: escalate one tier"| tiers
-  classDef s1 fill:#fdeee7,stroke:#eb6834,stroke-width:2px,color:#16161a
-  classDef s2 fill:#e8f1fb,stroke:#2a78d6,stroke-width:2px,color:#16161a
-  class route,check s1
-  class haiku,sonnet,opus,fable s2
-</script>
-    <svg viewBox="0 0 440 440" role="img" aria-labelledby="rtT rtD">
-      <title id="rtT">Routing log events to the cheapest capable model</title>
-      <desc id="rtD">Log and alert events go to a System 1 route read. Non-actionable events are dropped with no model called. The rest go to Haiku, Sonnet, Opus or Fable by complexity. A System 1 check read then asks whether the analysis names a cause and next step. If yes, done. If not, the event escalates one tier and is analysed again.</desc>
-      <rect class="n-nt" x="90" y="10" width="260" height="46" rx="10"/>
-      <text class="t" x="220" y="31" text-anchor="middle">Log &amp; alert stream</text>
-      <text class="ts" x="220" y="48" text-anchor="middle">100k events a day</text>
-      <path class="e" d="M220 56 V78"/>
-      <rect class="n-s1" x="40" y="80" width="360" height="62" rx="10"/>
-      <text class="t" x="220" y="103" text-anchor="middle">System 1 · route read (~100 ms)</text>
-      <text class="ts" x="220" y="122" text-anchor="middle">actionable? complexity 0–4? needs code?</text>
-      <text class="ts" x="220" y="136" text-anchor="middle">low confidence → err one tier up</text>
-      <path class="e" d="M48 142 V188"/>
-      <path class="e" d="M136 142 V188"/>
-      <path class="e" d="M220 142 V188"/>
-      <path class="e" d="M304 142 V188"/>
-      <path class="e" d="M392 142 V188"/>
-      <rect class="n-nt" x="8" y="190" width="80" height="50" rx="9"/>
-      <text class="t" x="48" y="212" text-anchor="middle">Drop</text>
-      <text class="ts" x="48" y="229" text-anchor="middle">no model</text>
-      <rect class="n-s2" x="96" y="190" width="80" height="50" rx="9"/>
-      <text class="t" x="136" y="212" text-anchor="middle">Haiku</text>
-      <text class="ts" x="136" y="229" text-anchor="middle">routine</text>
-      <rect class="n-s2" x="180" y="190" width="80" height="50" rx="9"/>
-      <text class="t" x="220" y="212" text-anchor="middle">Sonnet</text>
-      <text class="ts" x="220" y="229" text-anchor="middle">one service</text>
-      <rect class="n-s2" x="264" y="190" width="80" height="50" rx="9"/>
-      <text class="t" x="304" y="212" text-anchor="middle">Opus</text>
-      <text class="ts" x="304" y="229" text-anchor="middle">root cause</text>
-      <rect class="n-s2" x="352" y="190" width="80" height="50" rx="9"/>
-      <text class="t" x="392" y="212" text-anchor="middle">Fable</text>
-      <text class="ts" x="392" y="229" text-anchor="middle">security</text>
-      <path class="e" d="M136 240 V260 H220 V298"/>
-      <path class="e" d="M220 240 V298"/>
-      <path class="e" d="M304 240 V260 H220"/>
-      <path class="e" d="M392 240 V260 H300" style="marker-end:none"/>
-      <rect class="n-s1" x="80" y="300" width="280" height="58" rx="10"/>
-      <text class="t" x="220" y="323" text-anchor="middle">System 1 · check read</text>
-      <text class="ts" x="220" y="342" text-anchor="middle">names a cause and a next step?</text>
-      <path class="e" d="M220 358 V388"/>
-      <text class="el" x="226" y="378">yes</text>
-      <rect class="n-nt" x="150" y="390" width="140" height="40" rx="10"/>
-      <text class="t" x="220" y="415" text-anchor="middle">Done</text>
-      <path class="e" d="M80 329 H24 V250 H94" style="stroke-dasharray:4 4"/>
-      <text class="el" x="30" y="280">no: escalate</text>
-      <text class="el" x="30" y="294">one tier</text>
-    </svg>
-  </div>
-  <figcaption>Demo: <a href="https://github.com/SteFletcher/openjev/blob/main/examples/model_routing.py"><code>examples/model_routing.py</code></a>; worked: <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/routing"><code>examples/worked/routing/</code></a>. Six events: a healthcheck (dropped), a disk warning (Haiku), a Java stack trace (Sonnet, because it needs code), an OOM-killed cron job (Haiku's answer fails the check, so Sonnet takes it), a cross-service latency incident (Opus), and a suspected admin account takeover (Fable).</figcaption>
-</figure>
-<h4>Implementing it</h4>
 <p class="step"><span class="step-n">2</span><span><strong>Wire the graph.</strong> Both System One reads are conditional edges. The reducers add up the models used and the cost across escalations.</span></p>
 <!-- snippet:routing-graph examples/worked/routing/router.py -->
 <div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/routing/router.py">examples/worked/routing/router.py</a><button class="copy" type="button">Copy</button></div><pre><code class="language-python">class RouteState(TypedDict, total=False):
@@ -1080,42 +1151,8 @@ def build_router(s1, claude, adequate_at=0.7, actionable_at=0.3):
 <div class="code"><div class="code-head"><span>terminal</span><button class="copy" type="button">Copy</button></div><pre><code class="language-bash">python examples/worked/routing/run_router.py examples/worked/routing/events.log
 
 tail -F /var/log/alerts.log | python examples/worked/routing/run_router.py</code></pre></div>
-<p>This is where the money is. The mix of events is my assumption, but the prices are list prices. At 100,000 events a day, with 60% needing no model, 30% Haiku, 7% Sonnet, 2.5% Opus and 0.5% Fable, routing costs about <strong>$210 a day against $2,850 for sending everything to Opus 5</strong>. That's roughly 13× cheaper, or around $79k a month. The System One reads themselves come to about $1.50 a day at Jev's price. The less obvious win is that the security incident goes to the strongest model rather than whatever the default happens to be.</p>
 <p><strong>Where to be careful.</strong> A misroute costs more than it saves if a Haiku answer to a real incident gets believed. The check read is what catches that, and it has to be measured too. Re-run a sample of each tier's traffic one tier up and track how often the check read disagrees. And log every routing decision with its distribution, so "why did this go to Haiku?" has an answer.</p>
-
-<!-- ============================================================ -->
-<h2 id="cost">Cost</h2>
-<p>Here's a worked example that's easy to adjust. Take an automation layer making <strong>10,000 decisions a day</strong> across the pipeline stages above. Each decision sends about <strong>2,000 tokens of state</strong>: a diff summary, a log excerpt, some metadata. An LLM answering the same questions as JSON writes about <strong>300 tokens</strong>, and that's before any reasoning trace, which can easily be ten times that.</p>
-<p>Change the inputs and the chart updates. It uses a log scale, because the gap is several orders of magnitude.</p>
-
-<div class="calc" id="calc">
-  <div class="calc-inputs">
-    <div><label for="inDecisions">Decisions / day</label><input id="inDecisions" type="number" min="1" step="1000" value="10000"></div>
-    <div><label for="inTokens">Input tokens each</label><input id="inTokens" type="number" min="1" step="100" value="2000"></div>
-    <div><label for="inOut">LLM output tokens</label><input id="inOut" type="number" min="0" step="100" value="300"></div>
-    <div><label for="inGpu">GPU $/hour (assumed)</label><input id="inGpu" type="number" min="0" step="0.25" value="2"></div>
-  </div>
-  <div class="legend" aria-hidden="true"><span class="l-s2">System 2 (LLM API)</span><span class="l-s1">System 1</span></div>
-  <svg id="costChart" viewBox="0 0 700 330" role="img" aria-label="Monthly cost by option, log scale"></svg>
-  <p class="headline-num" id="headline"></p>
-</div>
-
-<div class="table-scroll"><table id="costTable">
-  <thead><tr><th>Option</th><th class="num">Price basis</th><th class="num">Per month</th><th class="num">Per 1,000 decisions</th></tr></thead>
-  <tbody></tbody>
-</table></div>
-<p class="small muted">Claude list prices per million tokens (input / output): Fable 5.1 $10 / $50, Opus 5 $5 / $25, Sonnet 5 $2 / $10, Haiku 4.5 $1 / $5, from <a href="https://www.anthropic.com/pricing#api">Anthropic's pricing</a>, excluding caching and batch discounts. Jev is $0.042 per million input tokens with free output, per <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">TypeSafe's launch post</a>. The self-hosted row is an <em>assumption</em>: a rented 48–96 GB GPU at the hourly rate you enter, running all month, with one extra GPU per ~50 decisions/second at 5× peak-to-average. Enter your own rate. Codiv's free tier and a Mac you already own are effectively $0 at this volume, so they're left off the chart.</p>
-
-<p>What the numbers say at the default volume:</p>
-<ul>
-  <li><strong>Hosted Jev is roughly 400× cheaper than a frontier LLM and 40× cheaper than the smallest Claude.</strong> Most of the saving is output tokens, because the answer is a single token per question and it isn't charged for. At about $25 a month, it's a rounding error, provided you're happy to send the data to TypeSafe.</li>
-  <li><strong>Self-hosting is a fixed cost, not a per-token one, and at low volume it isn't the cheap option.</strong> A rented GPU running all month costs more than Haiku at 10,000 decisions a day. Try 100,000 decisions a day and it beats every LLM on the list. Against hosted Jev it only breaks even at around half a million decisions a day, close to what one card can serve.</li>
-  <li><strong>So the case for OpenJev isn't price, it's control.</strong> The data never leaves your network, nobody can deprecate the model under you, and a Mac or a GPU you already own costs you only the electricity.</li>
-  <li><strong>Latency is a cost too.</strong> A pipeline that waits 5–30 s for an LLM on every gate spends that in runner minutes and developer time. At ~100 ms the gate stops being something anyone notices.</li>
-</ul>
-
-<!-- ============================================================ -->
-<h2 id="caveats">Caveats</h2>
+<h3 id="caveats">Caveats</h3>
 <ul>
   <li><strong>The answers are only as good as DiffusionGemma used this way.</strong> OpenJev's own README says so. Build a small labelled set for each decision and measure it before you trust it.</li>
   <li><strong>Check calibration, don't assume it.</strong> Plot predicted P against observed accuracy for each question. If 0.9 doesn't mean right about 90% of the time, fit a temperature or move the threshold. Jev claims calibration from RLCD training. The open variants don't have RLCD.</li>
@@ -1295,6 +1332,21 @@ tail -F /var/log/alerts.log | python examples/worked/routing/run_router.py</code
       try { document.execCommand('copy') ? ok() : fail(); } catch (e) { fail(e); } finally { t.remove(); }
     });
   }
+
+  // every heading gets a # link; clicking it jumps there and copies the deep link
+  document.querySelectorAll('.wrap h1[id], .wrap h2[id], .wrap h3[id], .wrap h4[id]').forEach(function (h) {
+    var a = document.createElement('a');
+    a.className = 'anchor'; a.href = '#' + h.id; a.textContent = '#';
+    a.setAttribute('aria-label', 'Link to this section: ' + h.textContent.trim());
+    a.addEventListener('click', function () {
+      var url = location.href.split('#')[0] + '#' + h.id;
+      copyText(url).then(function () {
+        a.textContent = 'link copied'; a.classList.add('done');
+        setTimeout(function () { a.textContent = '#'; a.classList.remove('done'); }, 1400);
+      }, function () {});
+    });
+    h.appendChild(a);
+  });
 
   // code blocks
   if (window.hljs) document.querySelectorAll('.code pre code').forEach(function (el) { hljs.highlightElement(el); });
