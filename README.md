@@ -14,17 +14,61 @@ against it unchanged. It runs
 silicon. Both backends also serve text generation on an OpenAI-compatible
 `/v1/chat/completions`, at no extra GPU memory.
 
-> **Hosted for free on [Codiv](https://codiv.ai)**, an inference platform for open System One
-> models: sign up and get 100M input tokens, no card required. `https://api.codiv.ai/v1/systemone`
+This fork adds three enterprise use cases, worked through with runnable code, and a write-up
+that makes the case for System One models in automation:
+**<https://stefletcher.github.io/openjev/>**. The rest of this README takes you from a clone to
+those examples running, then covers the API and the backends in depth. OpenJev is an
+independent project, not affiliated with or endorsed by TypeSafe AI.
 
-OpenJev is an independent project. It is not affiliated with or endorsed by TypeSafe AI.
+## Get started
 
-## Try it
+### 1. Clone
+
+```bash
+git clone https://github.com/SteFletcher/openjev && cd openjev
+python3 -m venv .venv && source .venv/bin/activate     # Python 3.10 or later
+```
+
+### 2. Start a server
+
+Pick whichever matches your hardware. Either way the first start downloads the weights
+(about 16–18 GB) into `~/.cache/huggingface`, and after that nothing leaves the machine.
+
+**Apple silicon** (any M-series Mac with 32 GB or more; no Docker, no vLLM):
+
+```bash
+pip install -e '.[mlx]'
+OPENJEV_BACKEND=mlx python -m openjev     # http://127.0.0.1:8080
+```
+
+**NVIDIA GPU** (24 GB or more, Docker with the NVIDIA container toolkit):
+
+```bash
+docker compose up -d                      # http://127.0.0.1:8080 once the model has loaded
+```
+
+**No hardware?** [Codiv](https://codiv.ai) hosts OpenJev for free (100M System One tokens,
+no card required) at `https://api.codiv.ai/v1/systemone`. Use that as the base URL below.
+
+If port 8080 is taken, set `OPENJEV_PORT`. The [backends section](#backends-in-depth) has
+the minimum spec, throughput figures and every setting.
+
+### 3. Make a decision
+
+```bash
+curl http://127.0.0.1:8080/v1/models     # lists openjev-latest once the server is up
+
+curl http://127.0.0.1:8080/v1/systemone -H "Content-Type: application/json" \
+  -d '{"model": "openjev-latest", "state": "I was charged twice this month.",
+       "questions": {"is_billing": {"type": "noul", "instructions": "Is this a billing issue?"}}}'
+```
+
+Or with TypeSafe's SDK, which works against OpenJev unchanged:
 
 ```bash
 pip install typesafe-sdk
-export TYPESAFE_BASE_URL=https://api.codiv.ai   # or http://127.0.0.1:8080 for your own server
-export TYPESAFE_API_KEY=sk-codiv-...
+export TYPESAFE_BASE_URL=http://127.0.0.1:8080   # or https://api.codiv.ai
+export TYPESAFE_API_KEY=local                    # any value for a local server without auth
 ```
 
 ```python
@@ -46,23 +90,54 @@ r.choices["team"].choice      # "outage", confidence 1.00
 r.scores["tone"].score        # 2.00 (expected level, 0-indexed)
 ```
 
-Or with curl:
+### 4. Run the examples from the write-up
+
+The write-up works through three enterprise problems: **evals** with a judge that sends
+unsure cases to a person, **personal data in logs** that regexes miss, and **routing each
+log event** to the cheapest model that can handle it. Each is a graph where System One reads
+sit on the edges and decide where an item goes next. The code comes at two levels.
+
+**The demos** ([`examples/`](examples/)) use only the standard library. Try them offline
+first, then against the server you just started:
 
 ```bash
-curl https://api.codiv.ai/v1/systemone \
-  -H "Authorization: Bearer $TYPESAFE_API_KEY" -H "Content-Type: application/json" \
-  -d '{"model": "openjev-latest", "state": "I was charged twice this month.",
-       "questions": {"is_billing": {"type": "noul", "instructions": "Is this a billing issue?"}}}'
+python examples/evals.py --mock                          # answers come from keyword hints
+python examples/pii_in_logs.py --mock
+python examples/model_routing.py --mock
+
+export OPENJEV_BASE_URL=http://127.0.0.1:8080            # now the real model
+python examples/evals.py
+python examples/pii_in_logs.py
+python examples/model_routing.py
 ```
 
-### Enterprise examples
+**The worked implementations** ([`examples/worked/`](examples/worked/)) are how each would
+be built for real: TypeSafe's SDK for the reads, [LangGraph](https://langchain-ai.github.io/langgraph/)
+for the graphs and the Anthropic SDK for the Claude steps.
 
-[`examples/`](examples/) has three runnable graphs where System One reads sit on the edges:
-LLM evals with a judge that sends unsure cases to a person, personal data in logs that
-regexes miss, and routing each log event to the cheapest model that can handle it. They use
-only the standard library and run offline with `--mock`. [`examples/worked/`](examples/worked/) shows
-how each would be built for real, with TypeSafe's SDK, LangGraph and Claude. The write-up is at
-<https://stefletcher.github.io/openjev/>.
+```bash
+pip install -e '.[examples]'                    # typesafe-sdk, langgraph, anthropic
+export TYPESAFE_BASE_URL=http://127.0.0.1:8080  # set in step 3
+export TYPESAFE_API_KEY=local
+export ANTHROPIC_API_KEY=...                    # only the guard, the router and the answer generator call Claude
+
+# evals: grade a labelled set, with a CI-style gate
+python examples/worked/evals/run_eval.py examples/worked/evals/dataset.jsonl --min-agreement 0.85
+
+# PII: a streaming filter, safe lines out on stdout, the unsure ones to a quarantine file
+python examples/worked/pii/log_filter.py --quarantine quarantine.log < examples/worked/pii/sample.log
+
+# routing: each event to Haiku, Sonnet, Opus or Fable, checked and escalated (spends a few cents)
+python examples/worked/routing/run_router.py examples/worked/routing/events.log
+```
+
+The first two need only the System One server. Each folder's README and the write-up's
+[How part](https://stefletcher.github.io/openjev/#how) go through the code step by step, and
+the code blocks on the site are copied from these files, so what you read is what runs.
+
+All three run offline in the tests against a fake server and a fake Claude
+(`pip install -e '.[test]' && pytest`). That proves the plumbing, not the answers: build a
+labelled set for each decision before you trust a threshold.
 
 ## API
 
@@ -205,7 +280,7 @@ canvases, read-only steps and step caps for DiffusionGemma. `openjev/engine.py` 
 that PR's `structured_server.py` example. It adds async I/O, bounded concurrency and
 backpressure.
 
-## Run your own
+## Backends in depth
 
 Two backends serve the same `/v1/systemone`. Pick by hardware:
 
@@ -219,10 +294,10 @@ Two backends serve the same `/v1/systemone`. Pick by hardware:
 | `think` | yes | yes |
 | Text generation | yes | yes, streaming included |
 
-### NVIDIA GPU
+### NVIDIA GPU in depth
 
 You need an NVIDIA GPU with at least 24 GB of memory for the NVFP4 checkpoint (tested on an
-RTX PRO 6000 Blackwell, sm_120).
+RTX PRO 6000 Blackwell, sm_120). The weights are about 18 GB.
 
 A prebuilt image is on Docker Hub, so there is nothing to compile.
 [`razorback16/openjev`](https://hub.docker.com/r/razorback16/openjev) runs vLLM with PR #57250
@@ -230,7 +305,6 @@ in one container with the Jev-compatible API server. It uses CUDA 13 and the
 [pin below](#caveats).
 
 ```bash
-git clone https://github.com/razorback16/openjev && cd openjev
 docker compose up -d          # OpenJev on 127.0.0.1:8080 once the model has loaded
 curl localhost:8080/v1/models
 ```
@@ -272,16 +346,13 @@ vllm serve nvidia/diffusiongemma-26B-A4B-it-NVFP4 --served-model-name dgemma \
 pip install -e path/to/openjev && python -m openjev
 ```
 
-### Apple silicon
+### Apple silicon in depth
 
-A Mac needs no vLLM and no Docker. `OPENJEV_BACKEND=mlx` runs DiffusionGemma inside the OpenJev
-process through [MLX](https://github.com/ml-explore/mlx) and
-[mlx-vlm](https://github.com/Blaizzy/mlx-vlm). The 4-bit weights need about 16 GB of memory.
-
-```bash
-pip install -e '.[mlx]'
-OPENJEV_BACKEND=mlx python -m openjev     # 127.0.0.1:8080
-```
+`OPENJEV_BACKEND=mlx` runs DiffusionGemma inside the OpenJev process through
+[MLX](https://github.com/ml-explore/mlx) and [mlx-vlm](https://github.com/Blaizzy/mlx-vlm).
+The 4-bit weights are 16.6 GB and need about 16 GB of GPU-addressable memory, which on macOS
+means a 32 GB machine in practice; macOS 14 or later. The `8bit` and `bf16` builds exist too
+(`OPENJEV_MLX_MODEL`).
 
 `/v1/systemone` answers reads with the same prompts, canvases and seeds as the vLLM backend,
 including `images`, `samples`, `sequential`, `steps` and the automatic re-reads. Each denoise
@@ -348,8 +419,12 @@ The server reads its settings from the environment.
 ## Development
 
 ```bash
-pip install -e '.[test]' && pytest
+pip install -e '.[test]' && pytest              # includes the examples, offline
+python site/snippets.py                         # re-copy the code blocks and contents into site/index.html
 ```
+
+`site/` is published to GitHub Pages on every push to `main`. The build fails if the page's
+code blocks have drifted from `examples/worked/`.
 
 ## License
 
