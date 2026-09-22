@@ -151,7 +151,7 @@ footer { margin: 72px 0 0; padding: 24px 0 48px; border-top: 1px solid var(--rul
 <header class="hero">
   <p class="kicker">Notes from the bench</p>
   <h1>System One models vs LLMs: fast, typed decisions for automation</h1>
-  <p class="standfirst">I've been running OpenJev, an open reimplementation of TypeSafe's Jev, on my own hardware. These are my notes on how it compares with Jev, with the other open variants and with the LLMs we already use. They also cover what it costs, and where I think it belongs in CI/CD, business process automation and agent graphs.</p>
+  <p class="standfirst">I've been running OpenJev, an open reimplementation of TypeSafe's Jev, on my own hardware. These are my notes on how it compares with Jev, with the other open variants and with the LLMs we already use. They also cover what it costs, where I think it belongs in CI/CD, business process automation and agent graphs, and three enterprise problems worked through with runnable code: evals, personal data in logs and model routing.</p>
   <p class="byline">Stephen Fletcher · September 2026 · <a href="https://github.com/SteFletcher/openjev">Source on GitHub</a></p>
 </header>
 
@@ -162,9 +162,10 @@ footer { margin: 72px 0 0; padding: 24px 0 48px; border-top: 1px solid var(--rul
     <li><a href="#vs-llm">Jev vs standard LLMs</a></li>
     <li><a href="#open">Jev vs the open variants</a></li>
     <li><a href="#local">Running it locally, and how big it is</a> (<a href="#min-spec">minimum spec</a>)</li>
-    <li><a href="#cicd">Demo decisions vs enterprise CI/CD decisions</a></li>
+    <li><a href="#cicd">From demo decisions to enterprise ones</a></li>
     <li><a href="#bpa">What it means for business process automation</a></li>
     <li><a href="#graphs">Where it fits in agent graphs</a></li>
+    <li><a href="#enterprise">Three enterprise problems</a>: <a href="#ex-evals">evals</a>, <a href="#ex-pii">PII in logs</a>, <a href="#ex-routing">model routing</a></li>
     <li><a href="#cost">Cost</a></li>
     <li><a href="#caveats">Caveats</a></li>
     <li><a href="#links">Further reading</a></li>
@@ -285,8 +286,8 @@ OPENJEV_BACKEND=mlx python -m openjev     # http://127.0.0.1:8080</code></pre>
 <p>If you don't want to run anything, <a href="https://codiv.ai">Codiv</a> hosts OpenJev with a free allowance of 100M System One tokens, and the API is the same.</p>
 
 <!-- ============================================================ -->
-<h2 id="cicd">The demo decisions vs the ones an enterprise actually makes</h2>
-<p>The out-of-the-box examples are deliberately simple. The OpenJev README triages a support message ("is it urgent, which team, how upset are they"). TypeSafe shows churn classification, a bot playing Doom and a Wikipedia-racing agent. They show the three primitives well, but they aren't what keeps a platform team up at night.</p>
+<h2 id="cicd">From demo decisions to enterprise ones</h2>
+<p>The out-of-the-box examples are deliberately simple. The OpenJev README triages a support message ("is it urgent, which team, how upset are they"). TypeSafe shows churn classification, a bot playing Doom and a Wikipedia-racing agent. They show the three primitives well, but they aren't what keeps a platform team up at night. <a href="#enterprise">Further down</a> I work through three that do, with code.</p>
 <p>Put an automation layer on top of CI and CD and the decisions look like this. Every one of them is currently either a brittle rule, an LLM call we wait several seconds for, or a person:</p>
 <div class="table-scroll"><table>
   <thead><tr><th>Stage</th><th>Decision</th><th>Primitive</th><th>What goes in the state</th></tr></thead>
@@ -428,6 +429,203 @@ OPENJEV_BACKEND=mlx python -m openjev     # http://127.0.0.1:8080</code></pre>
 </figure>
 <p>Two things follow from this. First, the graph gets <strong>faster and cheaper in proportion to how many edges it has</strong>, which is usually more than the number of nodes. Second, the control flow becomes <strong>inspectable</strong>. Each branch was taken because a probability crossed a threshold you set, not because an LLM happened to write the word "approve".</p>
 <p>OpenJev also serves an OpenAI-compatible <code>/v1/chat/completions</code> from the same weights, so a small graph can run both its System 1 edges and its lighter System 2 nodes on one local model. I'd still use a frontier model for the hard node, like the review-and-fix agent above.</p>
+<p>The next section works through three more graphs in this shape, with code you can run.</p>
+
+<!-- ============================================================ -->
+<h2 id="enterprise">Three enterprise problems, worked through</h2>
+<p>The CI/CD table above is the broad picture. These are the three problems I'd pick first in most organisations, because each one is currently either expensive, leaky or done on a sample. For each I've written a small runnable graph in the repo's <a href="https://github.com/SteFletcher/openjev/tree/main/examples"><code>examples/</code></a> folder. It uses only the standard library and runs offline with <code>--mock</code>, so you can see the flow before you download a model.</p>
+<div class="callout blue">
+  <p>The mock answers from keyword hints so the graphs run anywhere, and the tests use it. It says nothing about how accurate the model is. Point the examples at a real OpenJev before you judge the answers, and build a labelled set for each decision before you trust a threshold.</p>
+</div>
+
+<h3 id="ex-evals">1. Evals: a judge that knows when it's unsure</h3>
+<p><strong>How it's done today.</strong> Most teams grade LLM output with another LLM. The judge reads the case, writes a paragraph of reasoning and gives a score out of five. It works, but it takes seconds per case and costs real money, so it runs nightly on a sample. The criteria bleed into each other: an answer that reads well gets marked as faithful too. The score is an integer the model made up, and every so often the JSON doesn't parse.</p>
+<p><strong>With a System One judge</strong> the rubric becomes a set of typed questions, answered in parallel and in isolation against the same case:</p>
+<pre><code>RUBRIC = {
+    "faithful":         noul("Every factual claim in the answer is supported by the context."),
+    "answers_question": noul("The answer directly addresses the user's question."),
+    "personal_data":    noul("The answer discloses personal data about an identifiable individual."),
+    "quality":          score("Overall quality as a reply from an internal policy assistant.",
+                              ["unusable", "poor", "acceptable", "good", "excellent"]),
+}</code></pre>
+<ul>
+  <li><strong>No halo effect.</strong> Each criterion is its own read, so "well written" can't lift "faithful".</li>
+  <li><strong>A probability, not a grade.</strong> P ≥ 0.8 passes, P ≤ 0.2 fails, and anything in between goes to a person. The unsure queue is where human review time pays off most.</li>
+  <li><strong>All traffic, not a sample.</strong> At ~100 ms and a fraction of a penny per case you can grade every production answer, not just last night's 200.</li>
+  <li><strong>The same judge offline and inline.</strong> The rubric that scores the eval set also guards production answers, so what you measure is what you enforce.</li>
+  <li><strong>Replayable.</strong> Scores are stored as distributions, so a changed threshold can be re-applied to history without re-grading.</li>
+</ul>
+<figure>
+  <div class="diagram">
+    <svg viewBox="0 0 440 470" role="img" aria-labelledby="evT evD">
+      <title id="evT">An eval judge used as an inline guard</title>
+      <desc id="evD">A staff question and retrieved policy go to a System 2 assistant, which drafts an answer. A System 1 judge reads four criteria in parallel. If all pass, the answer is delivered. If it fails the first time, a System 2 regenerate step rewrites it and the judge reads again. Unsure results, or a second failure, go to a human. Every judgement is logged and feeds the offline eval report.</desc>
+      <rect class="n-nt" x="90" y="10" width="260" height="50" rx="10"/>
+      <text class="t" x="220" y="32" text-anchor="middle">Staff question</text>
+      <text class="ts" x="220" y="50" text-anchor="middle">+ retrieved policy text</text>
+      <path class="e" d="M220 60 V88"/>
+      <rect class="n-s2" x="90" y="90" width="260" height="50" rx="10"/>
+      <text class="t" x="220" y="112" text-anchor="middle">System 2 · policy assistant</text>
+      <text class="ts" x="220" y="130" text-anchor="middle">drafts the answer</text>
+      <path class="e" d="M180 140 V178"/>
+      <rect class="n-s1" x="20" y="180" width="260" height="68" rx="10"/>
+      <text class="t" x="150" y="203" text-anchor="middle">System 1 · judge</text>
+      <text class="ts" x="150" y="222" text-anchor="middle">faithful? answers? personal data?</text>
+      <text class="ts" x="150" y="238" text-anchor="middle">quality 0–4 · in parallel</text>
+      <rect class="n-s2" x="310" y="180" width="120" height="68" rx="10"/>
+      <text class="t" x="370" y="206" text-anchor="middle">Regenerate</text>
+      <text class="ts" x="370" y="224" text-anchor="middle">System 2, told</text>
+      <text class="ts" x="370" y="239" text-anchor="middle">what failed</text>
+      <path class="e" d="M280 196 H308"/>
+      <path class="e" d="M310 234 H282"/>
+      <text class="el" x="295" y="190" text-anchor="middle">fail</text>
+      <text class="el" x="295" y="256" text-anchor="middle">retry</text>
+      <path class="e" d="M85 248 V296"/>
+      <path class="e" d="M215 248 V296"/>
+      <text class="el" x="79" y="270" text-anchor="end">all</text>
+      <text class="el" x="79" y="285" text-anchor="end">P ≥ 0.8</text>
+      <text class="el" x="209" y="270" text-anchor="end">unsure, or</text>
+      <text class="el" x="209" y="285" text-anchor="end">failed twice</text>
+      <rect class="n-nt" x="20" y="298" width="130" height="50" rx="10"/>
+      <text class="t" x="85" y="320" text-anchor="middle">Deliver</text>
+      <text class="ts" x="85" y="338" text-anchor="middle">to the user</text>
+      <rect class="n-nt" x="160" y="298" width="130" height="50" rx="10"/>
+      <text class="t" x="225" y="320" text-anchor="middle">Human review</text>
+      <text class="ts" x="225" y="338" text-anchor="middle">the unsure queue</text>
+      <path class="e" d="M268 248 V268 H400 V396" style="stroke-dasharray:4 4"/>
+      <rect class="n-nt" x="200" y="398" width="230" height="58" rx="10"/>
+      <text class="t" x="315" y="421" text-anchor="middle">Verdict log</text>
+      <text class="ts" x="315" y="440" text-anchor="middle">distributions → offline eval report</text>
+    </svg>
+  </div>
+  <figcaption><a href="https://github.com/SteFletcher/openjev/blob/main/examples/evals.py"><code>examples/evals.py</code></a>. Part 1 grades a five-case eval set for an internal policy assistant: a good answer, a made-up policy, an unnecessary refusal, an answer that leaks a colleague's email, and a hedged answer that goes to a person. Part 2 runs the same judge as this guard.</figcaption>
+</figure>
+<p><strong>Where to be careful.</strong> A judge is a model too. Check it against human labels (agreement, and whether P = 0.8 really means right 80% of the time) before you put it on the critical path. Where possible, don't let a model judge its own family's output. And for things with a checkable answer, like code or arithmetic, running the tests beats any judge.</p>
+
+<h3 id="ex-pii">2. Personal data in logs</h3>
+<p><strong>How it's done today.</strong> A DLP rule set and a pile of regexes. They're good at the structured cases: email addresses, card numbers that pass a Luhn check, cloud keys. They miss the ones that turn into incidents: a customer's name and address pasted into a support note, a health condition in a claims comment, a search query that says more than it should. Scanning every line with an LLM is unaffordable, and it means shipping raw logs to a third party.</p>
+<p><strong>With a System One read</strong> every line gets four questions that match the categories your privacy policy already uses:</p>
+<pre><code>QUESTIONS = {
+    "person":           noul("The log line identifies a person: a name, home address, phone number or email address."),
+    "special_category": noul("It reveals health, religion, ethnicity, sexuality, trade-union membership "
+                             "or biometrics (UK GDPR Article 9)."),
+    "secret":           noul("It contains a password, API key, access token or private key."),
+    "financial":        noul("It contains payment card or bank account details."),
+}</code></pre>
+<ul>
+  <li><strong>Regex first, then the model.</strong> The cheap deterministic scan still runs and still cuts exact spans. The read covers the free text the patterns can't see into.</li>
+  <li><strong>Policy, not a verdict.</strong> A regex hit or P ≥ 0.8 means redact before shipping. P from 0.3 to 0.8 means quarantine for a person. Below that, forward. The thresholds belong to the DPO, not the model.</li>
+  <li><strong>It stays on your network.</strong> This is the example where OpenJev on your own GPU isn't optional. Sending logs to a hosted API to find out whether they contain personal data is itself the disclosure.</li>
+</ul>
+<figure>
+  <div class="diagram">
+    <svg viewBox="0 0 440 470" role="img" aria-labelledby="piT piD">
+      <title id="piT">A log pipeline that removes personal data before it leaves the network</title>
+      <desc id="piD">Inside the network, application logs pass a regex scan for emails, cards, IP addresses and keys, then a System 1 read for person, special category, secret and card data. Clean lines are forwarded. Lines with a regex hit or high probability are redacted and then forwarded. Unsure lines are quarantined for privacy review. Only forwarded lines reach the log platform outside the network.</desc>
+      <rect x="6" y="4" width="428" height="352" rx="12" fill="none" stroke="var(--text-3)" stroke-width="1.2" stroke-dasharray="5 5"/>
+      <text class="el" x="18" y="22">your network · OpenJev on your own GPU</text>
+      <rect class="n-nt" x="90" y="32" width="260" height="46" rx="10"/>
+      <text class="t" x="220" y="53" text-anchor="middle">Application &amp; service logs</text>
+      <text class="ts" x="220" y="70" text-anchor="middle">free-text fields included</text>
+      <path class="e" d="M220 78 V98"/>
+      <rect class="n-nt" x="70" y="100" width="300" height="50" rx="10"/>
+      <text class="t" x="220" y="122" text-anchor="middle">Regex scan</text>
+      <text class="ts" x="220" y="140" text-anchor="middle">email · card (Luhn) · IP · cloud keys</text>
+      <path class="e" d="M220 150 V170"/>
+      <rect class="n-s1" x="50" y="172" width="340" height="62" rx="10"/>
+      <text class="t" x="220" y="195" text-anchor="middle">System 1 · PII read (~100 ms)</text>
+      <text class="ts" x="220" y="214" text-anchor="middle">person? special category (Art. 9)?</text>
+      <text class="ts" x="220" y="228" text-anchor="middle">secret? card or bank details?</text>
+      <path class="e" d="M90 234 V270"/>
+      <path class="e" d="M220 234 V270"/>
+      <path class="e" d="M350 234 V270"/>
+      <text class="el" x="96" y="256">clean</text>
+      <text class="el" x="226" y="256">hit, or P ≥ 0.8</text>
+      <text class="el" x="356" y="256">0.3–0.8</text>
+      <rect class="n-nt" x="20" y="272" width="130" height="50" rx="10"/>
+      <text class="t" x="85" y="294" text-anchor="middle">Forward</text>
+      <text class="ts" x="85" y="312" text-anchor="middle">unchanged</text>
+      <rect class="n-nt" x="160" y="272" width="120" height="50" rx="10"/>
+      <text class="t" x="220" y="294" text-anchor="middle">Redact</text>
+      <text class="ts" x="220" y="312" text-anchor="middle">spans or field</text>
+      <rect class="n-nt" x="290" y="272" width="130" height="50" rx="10"/>
+      <text class="t" x="355" y="294" text-anchor="middle">Quarantine</text>
+      <text class="ts" x="355" y="312" text-anchor="middle">privacy review</text>
+      <path class="e" d="M85 322 V384"/>
+      <path class="e" d="M220 322 V340 H120 V384"/>
+      <rect class="n-nt" x="20" y="386" width="200" height="54" rx="10"/>
+      <text class="t" x="120" y="409" text-anchor="middle">Log platform / SIEM</text>
+      <text class="ts" x="120" y="428" text-anchor="middle">SaaS is fine now</text>
+    </svg>
+  </div>
+  <figcaption><a href="https://github.com/SteFletcher/openjev/blob/main/examples/pii_in_logs.py"><code>examples/pii_in_logs.py</code></a>. Eight log lines: an email and IP in a failed login, a customer's name and address in a support note, a health condition in a claims note, a card number, an AWS secret, an ambiguous medical search query, and two clean lines. Regex alone catches three of the six that carry personal data or secrets. The read is there for the other three.</figcaption>
+</figure>
+<p><strong>Where to be careful.</strong> One GPU does ~57 reads a second, about 5 million lines a day flat out. That's plenty for free-text fields and WARN-and-above, but not for every DEBUG line in a large estate, so point it at the lines that can actually carry free text. It also tells you <em>that</em> a line holds personal data, not <em>where</em>. Redact the whole field, or hand the few flagged lines to a span extractor (an NER model like <a href="https://github.com/urchade/GLiNER">GLiNER</a>, or a System 2 call) to cut precisely.</p>
+
+<h3 id="ex-routing">3. Model routing for log events</h3>
+<p><strong>How it's done today.</strong> Either everything goes to one model, usually a big one because nobody wants to be blamed for the miss, or a static rule maps severity to model, or an LLM decides which LLM to call. That last one costs seconds and money per event before any work gets done.</p>
+<p><strong>With a System One router</strong> one read decides whether an event needs a model at all and how much model it needs. A second read checks the answer and moves the event up a tier if it falls short:</p>
+<pre><code>ROUTE = {
+    "actionable": noul("Someone needs to act on or investigate this event."),
+    "complexity": score("How much analysis does a useful answer need?",
+                        ["routine", "simple", "moderate: one component", "hard: several services",
+                         "critical: security or data loss"]),          # → Haiku, Haiku, Sonnet, Opus, Fable
+    "needs_code": noul("A good answer needs someone to read or change application code."),
+}
+CHECK = {"adequate": noul("The analysis names a probable cause and a concrete next step.")}</code></pre>
+<figure>
+  <div class="diagram">
+    <svg viewBox="0 0 440 440" role="img" aria-labelledby="rtT rtD">
+      <title id="rtT">Routing log events to the cheapest capable model</title>
+      <desc id="rtD">Log and alert events go to a System 1 route read. Non-actionable events are dropped with no model called. The rest go to Haiku, Sonnet, Opus or Fable by complexity. A System 1 check read then asks whether the analysis names a cause and next step. If yes, done. If not, the event escalates one tier and is analysed again.</desc>
+      <rect class="n-nt" x="90" y="10" width="260" height="46" rx="10"/>
+      <text class="t" x="220" y="31" text-anchor="middle">Log &amp; alert stream</text>
+      <text class="ts" x="220" y="48" text-anchor="middle">100k events a day</text>
+      <path class="e" d="M220 56 V78"/>
+      <rect class="n-s1" x="40" y="80" width="360" height="62" rx="10"/>
+      <text class="t" x="220" y="103" text-anchor="middle">System 1 · route read (~100 ms)</text>
+      <text class="ts" x="220" y="122" text-anchor="middle">actionable? complexity 0–4? needs code?</text>
+      <text class="ts" x="220" y="136" text-anchor="middle">low confidence → err one tier up</text>
+      <path class="e" d="M48 142 V188"/>
+      <path class="e" d="M136 142 V188"/>
+      <path class="e" d="M220 142 V188"/>
+      <path class="e" d="M304 142 V188"/>
+      <path class="e" d="M392 142 V188"/>
+      <rect class="n-nt" x="8" y="190" width="80" height="50" rx="9"/>
+      <text class="t" x="48" y="212" text-anchor="middle">Drop</text>
+      <text class="ts" x="48" y="229" text-anchor="middle">no model</text>
+      <rect class="n-s2" x="96" y="190" width="80" height="50" rx="9"/>
+      <text class="t" x="136" y="212" text-anchor="middle">Haiku</text>
+      <text class="ts" x="136" y="229" text-anchor="middle">routine</text>
+      <rect class="n-s2" x="180" y="190" width="80" height="50" rx="9"/>
+      <text class="t" x="220" y="212" text-anchor="middle">Sonnet</text>
+      <text class="ts" x="220" y="229" text-anchor="middle">one service</text>
+      <rect class="n-s2" x="264" y="190" width="80" height="50" rx="9"/>
+      <text class="t" x="304" y="212" text-anchor="middle">Opus</text>
+      <text class="ts" x="304" y="229" text-anchor="middle">root cause</text>
+      <rect class="n-s2" x="352" y="190" width="80" height="50" rx="9"/>
+      <text class="t" x="392" y="212" text-anchor="middle">Fable</text>
+      <text class="ts" x="392" y="229" text-anchor="middle">security</text>
+      <path class="e" d="M136 240 V260 H220 V298"/>
+      <path class="e" d="M220 240 V298"/>
+      <path class="e" d="M304 240 V260 H220"/>
+      <path class="e" d="M392 240 V260 H300" style="marker-end:none"/>
+      <rect class="n-s1" x="80" y="300" width="280" height="58" rx="10"/>
+      <text class="t" x="220" y="323" text-anchor="middle">System 1 · check read</text>
+      <text class="ts" x="220" y="342" text-anchor="middle">names a cause and a next step?</text>
+      <path class="e" d="M220 358 V388"/>
+      <text class="el" x="226" y="378">yes</text>
+      <rect class="n-nt" x="150" y="390" width="140" height="40" rx="10"/>
+      <text class="t" x="220" y="415" text-anchor="middle">Done</text>
+      <path class="e" d="M80 329 H24 V250 H94" style="stroke-dasharray:4 4"/>
+      <text class="el" x="30" y="280">no: escalate</text>
+      <text class="el" x="30" y="294">one tier</text>
+    </svg>
+  </div>
+  <figcaption><a href="https://github.com/SteFletcher/openjev/blob/main/examples/model_routing.py"><code>examples/model_routing.py</code></a>. Six events: a healthcheck (dropped), a disk warning (Haiku), a Java stack trace (Sonnet, because it needs code), an OOM-killed cron job (Haiku's answer fails the check, so Sonnet takes it), a cross-service latency incident (Opus), and a suspected admin account takeover (Fable).</figcaption>
+</figure>
+<p>This is where the money is. The mix of events is my assumption, but the prices are list prices. At 100,000 events a day, with 60% needing no model, 30% Haiku, 7% Sonnet, 2.5% Opus and 0.5% Fable, routing costs about <strong>$210 a day against $2,850 for sending everything to Opus 5</strong>. That's roughly 13× cheaper, or around $79k a month. The System One reads themselves come to about $1.50 a day at Jev's price. The less obvious win is that the security incident goes to the strongest model rather than whatever the default happens to be.</p>
+<p><strong>Where to be careful.</strong> A misroute costs more than it saves if a Haiku answer to a real incident gets believed. The check read is what catches that, and it has to be measured too. Re-run a sample of each tier's traffic one tier up and track how often the check read disagrees. And log every routing decision with its distribution, so "why did this go to Haiku?" has an answer.</p>
 
 <!-- ============================================================ -->
 <h2 id="cost">Cost</h2>
