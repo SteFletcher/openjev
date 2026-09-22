@@ -1,11 +1,12 @@
-# Example only: copy to .github/workflows/ in the repo that owns the assistant.
-# Blocks a merge when a prompt or model change drops the pass rate or the judge stops agreeing
-# with the human labels. Point TYPESAFE_BASE_URL at Jev, Codiv or an OpenJev your runners can reach.
+# Example CI job: copy to .github/workflows/eval-gate.yml. It is not active in this repo because
+# it needs a System One server your runners can reach and a Claude key.
+# Set the repository variable TYPESAFE_BASE_URL (Jev, Codiv or your own OpenJev) and the secrets
+# TYPESAFE_API_KEY and ANTHROPIC_API_KEY.
 # [snippet:evals-ci]
 name: eval-gate
 on:
   pull_request:
-    paths: ["prompts/**", "assistant/**", "evals/**"]
+    paths: ["examples/worked/**"]   # in your repo: your prompts, assistant code and eval sets
 
 jobs:
   eval:
@@ -13,15 +14,18 @@ jobs:
     env:
       TYPESAFE_BASE_URL: ${{ vars.TYPESAFE_BASE_URL }}
       TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - run: pip install "typesafe-sdk>=0.7"
-      - name: Regenerate answers with the changed prompt
-        run: python evals/generate_answers.py evals/questions.jsonl > evals/dataset.jsonl
-      - name: Judge them, and fail the build below the bar
-        run: python evals/run_eval.py evals/dataset.jsonl --out eval-report.json --min-pass 0.9 --min-agreement 0.85
+      - run: pip install -e '.[examples]'
+      - name: Check the judge still agrees with the human labels
+        run: python examples/worked/evals/run_eval.py examples/worked/evals/dataset.jsonl --min-agreement 0.85
+      - name: Answer the eval questions with the changed prompt
+        run: python examples/worked/evals/generate_answers.py examples/worked/evals/questions.jsonl > answers.jsonl
+      - name: Judge the answers, and fail the build below the bar
+        run: python examples/worked/evals/run_eval.py answers.jsonl --out eval-report.json --min-pass 0.9
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: eval-report, path: eval-report.json }

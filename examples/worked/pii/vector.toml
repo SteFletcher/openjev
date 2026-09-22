@@ -1,0 +1,28 @@
+# Vector config for the end of the PII pipeline: it reads the filter's output on stdin and ships it.
+#
+#   kubectl logs -f deploy/support-api \
+#     | python examples/worked/pii/log_filter.py --quarantine /var/log/pii-review.log \
+#     | vector --config examples/worked/pii/vector.toml
+#
+# The console sink shows the flow. Swap it for your platform's sink (Datadog, Splunk HEC,
+# Elasticsearch, S3, ...): by this point personal data has been redacted or quarantined.
+
+[sources.clean_logs]
+type = "stdin"
+
+[transforms.tag]
+type = "remap"
+inputs = ["clean_logs"]
+source = '''
+.pii_filtered = true
+'''
+
+[sinks.out]
+type = "console"
+inputs = ["tag"]
+encoding.codec = "json"
+
+# [sinks.datadog]
+# type = "datadog_logs"
+# inputs = ["tag"]
+# default_api_key = "${DATADOG_API_KEY}"

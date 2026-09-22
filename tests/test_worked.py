@@ -184,3 +184,22 @@ def test_site_shows_the_code_that_runs():
     root = WORKED.parent.parent
     out = subprocess.run([sys.executable, str(root / "site" / "snippets.py"), "--check"], capture_output=True, text=True)
     assert out.returncode == 0, out.stderr
+
+
+def test_generate_answers_feeds_run_eval(s1):
+    from evals.generate_answers import answer_all
+    from evals.run_eval import run
+    questions = [json.loads(line) for line in (WORKED / "evals" / "questions.jsonl").read_text().splitlines()]
+    claude = FakeClaude({("sonnet", "annual leave"): "Up to 5 days, used by 31 March."})
+    answers = answer_all(claude, questions)
+    assert [a["id"] for a in answers] == [q["id"] for q in questions] and all(a["answer"] for a in answers)
+    report = run(s1, answers)
+    assert report["agreement"] is None and report["cases"] == len(questions)   # no labels on fresh answers
+
+
+def test_ci_example_and_vector_config_reference_files_that_exist():
+    root = WORKED.parent.parent
+    ci = (WORKED / "evals" / "eval-gate.yml").read_text()
+    for path in re.findall(r"examples/worked/\S+\.(?:py|jsonl)", ci):
+        assert (root / path).exists(), path
+    assert (WORKED / "pii" / "vector.toml").exists()

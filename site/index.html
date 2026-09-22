@@ -589,7 +589,7 @@ flowchart TD
       <text class="ts" x="315" y="440" text-anchor="middle">distributions → offline eval report</text>
     </svg>
   </div>
-  <figcaption>Demo: <a href="https://github.com/SteFletcher/openjev/blob/main/examples/evals.py"><code>examples/evals.py</code></a>; worked: <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/evals"><code>examples/worked/evals/</code></a>. Part 1 grades a five-case eval set for an internal policy assistant: a good answer, a made-up policy, an unnecessary refusal, an answer that leaks a colleague's email, and a hedged answer that goes to a person. Part 2 runs the same judge as this guard.</figcaption>
+  <figcaption>Demo: <a href="https://github.com/SteFletcher/openjev/blob/main/examples/evals.py"><code>examples/evals.py</code></a>; worked: <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/evals"><code>examples/worked/evals/</code></a>. Part 1 grades five answers from an internal policy assistant. On the real model the good answer passes, the made-up taxi policy fails (faithful 0.00) and the answer that leaks a colleague's email fails (personal data 1.00). The unnecessary refusal goes to a person: it scores 0.06 for answering the question, but the judge can't decide whether a refusal is "faithful" (0.77). The hedged DPIA answer passes. Part 2 runs the same judge as this guard. On the worked version's eight labelled cases, the judge agreed with the human label every time it decided, and sent one case to a person.</figcaption>
 </figure>
 <p class="more"><a href="#how-evals">How to build it →</a></p>
 <h4 id="ex-pii">Personal data in logs</h4>
@@ -656,7 +656,7 @@ flowchart TD
       <text class="ts" x="120" y="428" text-anchor="middle">SaaS is fine now</text>
     </svg>
   </div>
-  <figcaption>Demo: <a href="https://github.com/SteFletcher/openjev/blob/main/examples/pii_in_logs.py"><code>examples/pii_in_logs.py</code></a>; worked: <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/pii"><code>examples/worked/pii/</code></a>. Eight log lines: an email and IP in a failed login, a customer's name and address in a support note, a health condition in a claims note, a card number, an AWS secret, an ambiguous medical search query, and two clean lines. Regex alone catches three of the six that carry personal data or secrets. The read is there for the other three.</figcaption>
+  <figcaption>Demo: <a href="https://github.com/SteFletcher/openjev/blob/main/examples/pii_in_logs.py"><code>examples/pii_in_logs.py</code></a>; worked: <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/pii"><code>examples/worked/pii/</code></a>. Eight log lines: an email and IP in a failed login, a customer's name and address in a support note, a health condition in a claims note, a card number, an AWS secret, a medical search query, and two clean lines. Regex alone catches three of the six that carry personal data or secrets. On the real model the read caught the other three, each at P ≥ 0.99, and let both clean lines through.</figcaption>
 </figure>
 <p class="more"><a href="#how-pii">How to build it →</a></p>
 <h4 id="ex-routing">Model routing for log events</h4>
@@ -728,7 +728,7 @@ flowchart TD
       <text class="el" x="30" y="294">one tier</text>
     </svg>
   </div>
-  <figcaption>Demo: <a href="https://github.com/SteFletcher/openjev/blob/main/examples/model_routing.py"><code>examples/model_routing.py</code></a>; worked: <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/routing"><code>examples/worked/routing/</code></a>. Six events: a healthcheck (dropped), a disk warning (Haiku), a Java stack trace (Sonnet, because it needs code), an OOM-killed cron job (Haiku's answer fails the check, so Sonnet takes it), a cross-service latency incident (Opus), and a suspected admin account takeover (Fable).</figcaption>
+  <figcaption>Demo: <a href="https://github.com/SteFletcher/openjev/blob/main/examples/model_routing.py"><code>examples/model_routing.py</code></a>; worked: <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked/routing"><code>examples/worked/routing/</code></a>. Six events, routed by the real model: a healthcheck (dropped, no model called), a disk warning (Haiku), a Java stack trace (Sonnet, because it needs code), an OOM-killed cron job (Sonnet), a cross-service latency incident (Opus) and a suspected admin account takeover (Fable). When I fed the check read a deliberately vague answer for the latency incident, it scored it 0.33 and escalated it to Fable.</figcaption>
 </figure>
 <p>This is where the money is. The mix of events is my assumption, but the prices are list prices. At 100,000 events a day, with 60% needing no model, 30% Haiku, 7% Sonnet, 2.5% Opus and 0.5% Fable, routing costs about <strong>$210 a day against $2,850 for sending everything to Opus 5</strong>. That's roughly 13× cheaper, or around $79k a month. The System One reads themselves come to about $1.50 a day at Jev's price. The less obvious win is that the security incident goes to the strongest model rather than whatever the default happens to be.</p>
 
@@ -738,7 +738,7 @@ flowchart TD
 <h2 class="part-h" id="how"><span class="part-k">How</span>Run it, then build the use cases</h2>
 <p class="part-intro">Running the model, a one-off setup, then each use case step by step. Every code block has a copy button.</p>
 <div class="callout blue">
-  <p>The code comes at two levels. <a href="https://github.com/SteFletcher/openjev/tree/main/examples"><code>examples/</code></a> has a quick demo of each use case that uses only the standard library and runs offline with <code>--mock</code>. <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked"><code>examples/worked/</code></a> has the implementations shown here: TypeSafe's own SDK for the System One reads, <a href="https://langchain-ai.github.io/langgraph/">LangGraph</a> for the graphs and the Anthropic SDK for the Claude calls. The code blocks are copied from the repo by a script, and a test fails if the two drift apart. The repo's tests run every worked example end to end against a fake System One server and a fake Claude. That proves the plumbing, not the model's accuracy. Point the examples at a real OpenJev before you judge the answers, and build a labelled set for each decision before you trust a threshold.</p>
+  <p>The code comes at two levels. <a href="https://github.com/SteFletcher/openjev/tree/main/examples"><code>examples/</code></a> has a quick demo of each use case that uses only the standard library and runs offline with <code>--mock</code>. <a href="https://github.com/SteFletcher/openjev/tree/main/examples/worked"><code>examples/worked/</code></a> has the implementations shown here: TypeSafe's own SDK for the System One reads, <a href="https://langchain-ai.github.io/langgraph/">LangGraph</a> for the graphs and the Anthropic SDK for the Claude calls. The code blocks are copied from the repo by a script, and a test fails if the two drift apart. The repo's tests run every worked example end to end against a fake System One server and a fake Claude. That proves the plumbing, not the model's accuracy. I also ran every example on this page against a real OpenJev (the MLX backend on an M5 Max, 22 September 2026), and the numbers quoted in the What part come from that run. The Claude calls in the guard, the router and the answer generator are the exception: they were exercised with a stand-in, not a real API key. Build a labelled set for each decision before you trust a threshold.</p>
 </div>
 <h3 id="local">Run it locally, and how big it is</h3>
 <p>This is where the open variants earn their keep. Jev is a hosted API, but OpenJev fits on a single workstation GPU or a decent Mac.</p>
@@ -896,12 +896,12 @@ def gate(report, min_pass, min_agreement):
         failures.append(f"judge agreement {report['agreement']:.2f} &lt; {min_agreement}")
     return failures</code></pre></div>
 <!-- /snippet -->
-<p class="step"><span class="step-n">4</span><span><strong>Put the gate in CI.</strong> A prompt or model change that drops the pass rate, or makes the judge disagree with people, fails the pull request.</span></p>
+<p class="step"><span class="step-n">4</span><span><strong>Put the gate in CI.</strong> First check that the judge still agrees with the human labels. Then answer the question set with the changed prompt and grade the answers. A change that drops the pass rate fails the pull request.</span></p>
 <!-- snippet:evals-ci examples/worked/evals/eval-gate.yml -->
 <div class="code"><div class="code-head"><a href="https://github.com/SteFletcher/openjev/blob/main/examples/worked/evals/eval-gate.yml">examples/worked/evals/eval-gate.yml</a><button class="copy" type="button">Copy</button></div><pre><code class="language-yaml">name: eval-gate
 on:
   pull_request:
-    paths: ["prompts/**", "assistant/**", "evals/**"]
+    paths: ["examples/worked/**"]   # in your repo: your prompts, assistant code and eval sets
 
 jobs:
   eval:
@@ -909,15 +909,18 @@ jobs:
     env:
       TYPESAFE_BASE_URL: ${{ vars.TYPESAFE_BASE_URL }}
       TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - run: pip install "typesafe-sdk&gt;=0.7"
-      - name: Regenerate answers with the changed prompt
-        run: python evals/generate_answers.py evals/questions.jsonl &gt; evals/dataset.jsonl
-      - name: Judge them, and fail the build below the bar
-        run: python evals/run_eval.py evals/dataset.jsonl --out eval-report.json --min-pass 0.9 --min-agreement 0.85
+      - run: pip install -e '.[examples]'
+      - name: Check the judge still agrees with the human labels
+        run: python examples/worked/evals/run_eval.py examples/worked/evals/dataset.jsonl --min-agreement 0.85
+      - name: Answer the eval questions with the changed prompt
+        run: python examples/worked/evals/generate_answers.py examples/worked/evals/questions.jsonl &gt; answers.jsonl
+      - name: Judge the answers, and fail the build below the bar
+        run: python examples/worked/evals/run_eval.py answers.jsonl --out eval-report.json --min-pass 0.9
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: eval-report, path: eval-report.json }</code></pre></div>
@@ -974,6 +977,9 @@ def build_guard(s1, claude):
 <div class="code"><div class="code-head"><span>terminal</span><button class="copy" type="button">Copy</button></div><pre><code class="language-bash">python examples/worked/evals/run_eval.py examples/worked/evals/dataset.jsonl \
     --out report.json --min-pass 0.5 --min-agreement 0.85
 
+python examples/worked/evals/generate_answers.py examples/worked/evals/questions.jsonl > answers.jsonl
+python examples/worked/evals/run_eval.py answers.jsonl --min-pass 0.9
+
 python examples/worked/evals/guard.py "Can I expense a taxi home after working late?" \
     --context "Taxis are reimbursable when travel after 21:00 is required for business reasons and approved in advance by a line manager."</code></pre></div>
 <p><strong>Where to be careful.</strong> A judge is a model too. Check it against human labels (agreement, and whether P = 0.8 really means right 80% of the time) before you put it on the critical path. Where possible, don't let a model judge its own family's output. And for things with a checkable answer, like code or arithmetic, running the tests beats any judge.</p>
@@ -986,12 +992,12 @@ python examples/worked/evals/guard.py "Can I expense a taxi home after working l
     "person": {"type": "noul", "instructions":
                "The log line identifies a person: a name, home address, phone number or email address."},
     "special_category": {"type": "noul", "instructions":
-               "The log line reveals special-category data about a person: health, religion, ethnicity, "
-               "sexuality, trade-union membership or biometrics (UK GDPR Article 9)."},
+               "The log line mentions a person's medical condition, symptoms or treatment, or their religion, "
+               "ethnicity, sexuality, trade-union membership or biometrics (special-category data, UK GDPR Article 9)."},
     "secret": {"type": "noul", "instructions":
                "The log line contains a credential or secret: a password, API key, access token or private key."},
     "financial": {"type": "noul", "instructions":
-               "The log line contains payment card or bank account details."},
+               "The log line contains a payment card number or a bank account number."},
 }
 
 # the structured cases stay with regexes: they are exact, free, and give a span to cut
@@ -1062,7 +1068,8 @@ PATTERNS = {
 # in a pipeline, with OpenJev on your own network
 kubectl logs -f deploy/support-api \
   | python examples/worked/pii/log_filter.py --quarantine /var/log/pii-review.log \
-  | vector --config vector.toml</code></pre></div>
+  | vector --config examples/worked/pii/vector.toml</code></pre></div>
+<p><strong>The wording of the questions matters.</strong> My first version asked about "special-category data about a person: health, religion, …". On the real model it flagged <code>INFO health /ready ok</code> as health data (P = 0.81), because the service is called "health". It also put an order total, <code>amount=42.10 GBP</code>, at 0.39 for "payment card or bank account details", which is enough to quarantine it. Asking instead about "a person's medical condition, symptoms or treatment" and "a payment card number or a bank account number" took both false alarms to 0.00 and left the real hits at 1.00. That's eight lines, not an evaluation. It's exactly the kind of thing a labelled set per question will find, so build one before you trust the thresholds.</p>
 <p><strong>Where to be careful.</strong> One GPU does ~57 reads a second, about 5 million lines a day flat out. That's plenty for free-text fields and WARN-and-above, but not for every DEBUG line in a large estate, so point it at the lines that can actually carry free text. It also tells you <em>that</em> a line holds personal data, not <em>where</em>. Redact the whole field, or hand the few flagged lines to a span extractor (an NER model like <a href="https://github.com/urchade/GLiNER">GLiNER</a>, or a System 2 call) to cut precisely.</p>
 
 <h3 id="how-routing">Build the model router</h3>

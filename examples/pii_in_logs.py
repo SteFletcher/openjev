@@ -40,14 +40,14 @@ QUESTIONS = {
         "The log line identifies a person: a name, home address, phone number or email address.",
         mock=[(r"@|O'Neill|Harbour Row", 0.96)]),
     "special_category": noul(
-        "The log line reveals special-category data about a person: health, religion, ethnicity, "
-        "sexuality, trade-union membership or biometrics (UK GDPR Article 9).",
+        "The log line mentions a person's medical condition, symptoms or treatment, or their religion, "
+        "ethnicity, sexuality, trade-union membership or biometrics (special-category data, UK GDPR Article 9).",
         mock=[(r"diabetes", 0.95), (r"rash on arm|medication", 0.52)]),
     "secret": noul(
         "The log line contains a credential or secret: a password, API key, access token or private key.",
         mock=[(r"SECRET|api[_-]?key|password=", 0.97)]),
     "financial": noul(
-        "The log line contains payment card or bank account details.",
+        "The log line contains a payment card number or a bank account number.",
         mock=[(r"\b(?:\d[ -]?){13,16}\b", 0.97)]),
 }
 

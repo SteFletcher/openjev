@@ -7,12 +7,12 @@ QUESTIONS = {
     "person": {"type": "noul", "instructions":
                "The log line identifies a person: a name, home address, phone number or email address."},
     "special_category": {"type": "noul", "instructions":
-               "The log line reveals special-category data about a person: health, religion, ethnicity, "
-               "sexuality, trade-union membership or biometrics (UK GDPR Article 9)."},
+               "The log line mentions a person's medical condition, symptoms or treatment, or their religion, "
+               "ethnicity, sexuality, trade-union membership or biometrics (special-category data, UK GDPR Article 9)."},
     "secret": {"type": "noul", "instructions":
                "The log line contains a credential or secret: a password, API key, access token or private key."},
     "financial": {"type": "noul", "instructions":
-               "The log line contains payment card or bank account details."},
+               "The log line contains a payment card number or a bank account number."},
 }
 
 # the structured cases stay with regexes: they are exact, free, and give a span to cut

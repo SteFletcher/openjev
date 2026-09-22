@@ -1,0 +1,8 @@
+{"id": "leave-carryover", "question": "How many days of annual leave can I carry over?", "context": "Staff may carry over up to 5 days of unused annual leave into the next leave year. Carried-over days must be used by 31 March."}
+{"id": "late-taxi", "question": "Can I expense a taxi home after working late?", "context": "Taxis are reimbursable when travel after 21:00 is required for business reasons and approved in advance by a line manager."}
+{"id": "svc-passwords", "question": "What is the password policy for service accounts?", "context": "Service account credentials must be at least 32 characters, stored in the vault and rotated every 90 days."}
+{"id": "prod-access", "question": "Who approves access to production?", "context": "Production access requests are approved by the service owner and reviewed quarterly by Security."}
+{"id": "dpia", "question": "Do I need a DPIA for a new customer analytics tool?", "context": "A Data Protection Impact Assessment is required when processing is likely to result in high risk to individuals, including large-scale profiling."}
+{"id": "laptop-refresh", "question": "How often are laptops replaced?", "context": "Laptops are replaced every four years, or sooner if IT confirms a hardware fault that cannot be repaired economically."}
+{"id": "parental-leave", "question": "How much enhanced parental leave do we offer?", "context": "Employees with 26 weeks' service receive 16 weeks of enhanced parental pay at full salary, followed by statutory pay."}
+{"id": "usb-drives", "question": "Can I use a USB stick to move customer data?", "context": "Removable media must not be used for customer data. Use the approved secure file transfer service."}
