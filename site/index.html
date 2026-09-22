@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System One vs LLMs</title>
+<meta name="description" content="Jev, its open variants and standard LLMs compared: running them locally, what they cost, and where fast typed decisions fit in CI/CD, business process automation and agent graphs.">
+<meta name="author" content="Stephen Fletcher">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #fcfcfb;
+  --surface: #f3f2ef;
+  --surface-2: #e9e7e2;
+  --rule: #dcdad4;
+  --text: #16161a;
+  --text-2: #52514e;
+  --text-3: #75736e;
+  --link: #1f63b8;
+  --s2: #2a78d6;        /* System 2 / LLM series */
+  --s1: #eb6834;        /* System 1 series */
+  --s1-wash: #fdeee7;
+  --s2-wash: #e8f1fb;
+  --neutral-node: #ffffff;
+  --code-bg: #efeee9;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #141413;
+    --surface: #1d1d1b;
+    --surface-2: #262623;
+    --rule: #34332f;
+    --text: #f2f1ec;
+    --text-2: #c3c2b7;
+    --text-3: #9a998f;
+    --link: #7fb2f0;
+    --s2: #3987e5;
+    --s1: #d95926;
+    --s1-wash: #33211a;
+    --s2-wash: #1a2636;
+    --neutral-node: #1d1d1b;
+    --code-bg: #232320;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #141413;
+  --surface: #1d1d1b;
+  --surface-2: #262623;
+  --rule: #34332f;
+  --text: #f2f1ec;
+  --text-2: #c3c2b7;
+  --text-3: #9a998f;
+  --link: #7fb2f0;
+  --s2: #3987e5;
+  --s1: #d95926;
+  --s1-wash: #33211a;
+  --s2-wash: #1a2636;
+  --neutral-node: #1d1d1b;
+  --code-bg: #232320;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 17px/1.65 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.wrap { max-width: 760px; margin: 0 auto; padding: 0 16px; }
+header.hero { padding: 64px 0 32px; border-bottom: 1px solid var(--rule); }
+.kicker { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--s1); margin: 0 0 12px; }
+h1 { font-size: clamp(32px, 6vw, 46px); line-height: 1.1; letter-spacing: -.02em; margin: 0 0 16px; }
+.standfirst { font-size: 19px; color: var(--text-2); margin: 0 0 20px; }
+.byline { font-size: 14px; color: var(--text-3); margin: 0; }
+h2 { font-size: 26px; line-height: 1.25; letter-spacing: -.01em; margin: 56px 0 12px; }
+h3 { font-size: 19px; margin: 32px 0 8px; }
+p, ul, ol { margin: 0 0 16px; }
+li { margin-bottom: 6px; }
+a { color: var(--link); text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+code { font: 14px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+pre { font: 13.5px/1.55 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 14px 16px; border-radius: 8px; overflow-x: auto; margin: 0 0 16px; }
+pre code { background: none; padding: 0; font-size: inherit; }
+strong { font-weight: 600; }
+.muted { color: var(--text-3); }
+small, .small { font-size: 14px; }
+
+nav.toc { background: var(--surface); border-radius: 10px; padding: 16px 20px; margin: 32px 0 0; font-size: 15px; }
+nav.toc p { margin: 0 0 6px; font-weight: 600; }
+nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; }
+@media (max-width: 560px) { nav.toc ol { columns: 1; } }
+
+.table-scroll { overflow-x: auto; margin: 0 0 20px; border: 1px solid var(--rule); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; line-height: 1.45; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--rule); }
+thead th { background: var(--surface); font-weight: 600; white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.table-scroll table { min-width: 560px; }
+
+.callout { border-left: 3px solid var(--s1); background: var(--s1-wash); padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 0 0 20px; }
+.callout p:last-child { margin: 0; }
+.callout.blue { border-color: var(--s2); background: var(--s2-wash); }
+
+.twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 0 0 20px; }
+@media (max-width: 600px) { .twocol { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border-radius: 10px; padding: 16px 18px; border-top: 3px solid var(--s1); }
+.card.s2 { border-top-color: var(--s2); }
+.card h3 { margin-top: 0; }
+.card ul { padding-left: 18px; margin: 0; font-size: 15px; }
+
+.tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+.tag.s1 { background: var(--s1-wash); color: var(--text); box-shadow: inset 0 0 0 1px var(--s1); }
+.tag.s2 { background: var(--s2-wash); color: var(--text); box-shadow: inset 0 0 0 1px var(--s2); }
+
+/* calculator + chart */
+.calc { background: var(--surface); border-radius: 12px; padding: 18px; margin: 0 0 20px; }
+.calc-inputs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+@media (max-width: 640px) { .calc-inputs { grid-template-columns: 1fr 1fr; } }
+.calc label { display: block; font-size: 13px; color: var(--text-2); margin-bottom: 4px; }
+.calc input { width: 100%; font: 15px Inter, system-ui, sans-serif; padding: 7px 9px; border: 1px solid var(--rule); border-radius: 6px; background: var(--bg); color: var(--text); font-variant-numeric: tabular-nums; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--text-2); margin: 0 0 6px; }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.legend .l-s2::before { background: var(--s2); }
+.legend .l-s1::before { background: var(--s1); }
+#costChart { width: 100%; height: auto; display: block; }
+#costChart text { font-family: Inter, system-ui, sans-serif; }
+.tooltip { position: fixed; pointer-events: none; background: var(--text); color: var(--bg); font-size: 13px; line-height: 1.4; padding: 6px 9px; border-radius: 6px; opacity: 0; transition: opacity .1s; z-index: 10; max-width: 260px; }
+.headline-num { font-size: 15px; color: var(--text-2); margin: 12px 0 0; }
+.headline-num strong { color: var(--text); }
+
+figure { margin: 0 0 20px; }
+figcaption { font-size: 14px; color: var(--text-3); margin-top: 8px; }
+.diagram { background: var(--surface); border-radius: 12px; padding: 12px; }
+.diagram svg { width: 100%; height: auto; display: block; max-width: 520px; margin: 0 auto; }
+
+footer { margin: 72px 0 0; padding: 24px 0 48px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--text-3); }
+.theme-toggle { position: fixed; top: 12px; right: 12px; font: 13px Inter, system-ui, sans-serif; background: var(--surface); color: var(--text-2); border: 1px solid var(--rule); border-radius: 999px; padding: 5px 11px; cursor: pointer; }
+</style>
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle light or dark theme">Theme</button>
+
+<div class="wrap">
+<header class="hero">
+  <p class="kicker">Notes from the bench</p>
+  <h1>System One models vs LLMs: fast, typed decisions for automation</h1>
+  <p class="standfirst">I've been running OpenJev, an open reimplementation of TypeSafe's Jev, on my own hardware. These are my notes on how it compares with Jev, with the other open variants and with the LLMs we already use. They also cover what it costs, and where I think it belongs in CI/CD, business process automation and agent graphs.</p>
+  <p class="byline">Stephen Fletcher · September 2026 · <a href="https://github.com/SteFletcher/openjev">Source on GitHub</a></p>
+</header>
+
+<nav class="toc" aria-label="Contents">
+  <p>Contents</p>
+  <ol>
+    <li><a href="#s1s2">System 1 vs System 2</a></li>
+    <li><a href="#vs-llm">Jev vs standard LLMs</a></li>
+    <li><a href="#open">Jev vs the open variants</a></li>
+    <li><a href="#local">Running it locally, and how big it is</a></li>
+    <li><a href="#cicd">Demo decisions vs enterprise CI/CD decisions</a></li>
+    <li><a href="#bpa">What it means for business process automation</a></li>
+    <li><a href="#graphs">Where it fits in agent graphs</a></li>
+    <li><a href="#cost">Cost</a></li>
+    <li><a href="#caveats">Caveats</a></li>
+    <li><a href="#links">Further reading</a></li>
+  </ol>
+</nav>
+
+<!-- ============================================================ -->
+<h2 id="s1s2">System 1 vs System 2, in summary</h2>
+<p>The names come from Daniel Kahneman's <a href="https://en.wikipedia.org/wiki/Thinking,_Fast_and_Slow"><em>Thinking, Fast and Slow</em></a>. <strong>System 1</strong> is the fast, automatic judgement you make without deliberating: this email looks like spam, that driver is about to pull out. <strong>System 2</strong> is slow and effortful. It's the reasoning you do when you work through a problem step by step.</p>
+<p>That maps onto the models quite neatly:</p>
+<div class="twocol">
+  <div class="card">
+    <h3>System 1 model <span class="tag s1">Jev, OpenJev</span></h3>
+    <ul>
+      <li>State in, typed answers out: yes/no, pick one, score on a scale</li>
+      <li>One read returns a probability for every option</li>
+      <li>Tens to hundreds of milliseconds</li>
+      <li>Can't go off-schema, so there's nothing to parse</li>
+      <li>Charged on input tokens, since there's almost no output</li>
+    </ul>
+  </div>
+  <div class="card s2">
+    <h3>System 2 model <span class="tag s2">Standard LLMs</span></h3>
+    <ul>
+      <li>Writes text token by token, often after a long reasoning trace</li>
+      <li>Plans, writes code, explains, uses tools</li>
+      <li>Seconds to minutes</li>
+      <li>Structured output is a format you ask for, so it has to be validated</li>
+      <li>Output tokens cost several times what input tokens do</li>
+    </ul>
+  </div>
+</div>
+<p>The point isn't that one replaces the other. Most of what automation does all day is System 1 work: route this, gate that, flag the other. We've been paying System 2 prices and waiting System 2 latencies for it because an LLM was the only fuzzy decision-maker to hand.</p>
+
+<!-- ============================================================ -->
+<h2 id="vs-llm">Jev vs standard LLMs</h2>
+<p>TypeSafe <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">launched Jev</a> as "the first System One model". You send it a state (any unstructured text, and with OpenJev images too) plus a set of typed questions. It returns each answer with a probability and a confidence, and it generates no prose at all. TypeSafe says it trains Jev with <em>Reinforcement Learning for Calibrated Decisions</em> (RLCD), so that the probabilities mean what they say.</p>
+<div class="table-scroll"><table>
+  <thead><tr><th></th><th>Standard LLM</th><th>Jev (System One)</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Output</strong></td><td>A string, possibly JSON if you ask nicely or use constrained decoding</td><td>Typed values: <code>noul</code> (P(yes)), <code>choice</code>, <code>score</code></td></tr>
+    <tr><td><strong>Off-schema answers</strong></td><td>Possible. You validate, retry and repair</td><td>Impossible by construction, because only the label tokens are scored</td></tr>
+    <tr><td><strong>Confidence</strong></td><td>Self-reported if you ask, and usually overconfident</td><td>Read from the model's own distribution on every answer</td></tr>
+    <tr><td><strong>Many questions</strong></td><td>Sequential, and earlier answers bias later ones</td><td>Answered in parallel and in isolation against the same state</td></tr>
+    <tr><td><strong>Latency (vendor figures)</strong></td><td>3–329 s for frontier models on TypeSafe's workflow evals</td><td>70–500 ms end to end</td></tr>
+    <tr><td><strong>Price (list)</strong></td><td>$1–$10 /MTok in, $5–$50 /MTok out for Claude today</td><td>$0.042 /MTok in, and output is free</td></tr>
+    <tr><td><strong>Can it reason, plan, write?</strong></td><td>Yes. That's what it's for</td><td>No. It decides</td></tr>
+  </tbody>
+</table></div>
+<div class="callout">
+  <p><strong>A note on "zero hallucinations".</strong> TypeSafe's launch post claims a 0% hallucination rate. That means zero <em>type</em> errors: you can't get back a label that doesn't exist. The model can still pick the wrong label. The useful difference is that it tells you how sure it is, so you can put a threshold in front of the answer. Its <a href="https://evals.typesafe.ai/">workflow evals</a> quote 193× faster and 444× cheaper, and TypeSafe itself says those numbers are at the high end of what to expect. I'd treat them as vendor numbers and measure my own.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="open">Jev vs the open variants</h2>
+<p>Jev is closed weights and API only. Within days of the launch, people started rebuilding the idea in the open. The rebuilds fall into four groups:</p>
+<ol>
+  <li><strong>Wire-compatible servers on a big open model.</strong> <a href="https://github.com/razorback16/openjev">OpenJev</a>, which I've forked <a href="https://github.com/SteFletcher/openjev">here</a>, is one. It runs Google/NVIDIA's DiffusionGemma, a <em>diffusion</em> language model that denoises a whole canvas of tokens at once. OpenJev leaves one masked slot per question and reads the probability distribution for every slot in a single pass. It speaks Jev's API, so TypeSafe's own SDK works against it unchanged.</li>
+  <li><strong>Logit readers on a frozen small model.</strong> These take an ordinary autoregressive model (Qwen 4B, for example) and read the next-token probabilities of the label tokens. They're cheap and they run on a laptop, but the probabilities are relative, not calibrated.</li>
+  <li><strong>Small models fine-tuned for decisions.</strong> These are trained or given a decision head so they answer in Jev's shape. Some are small enough to run on a CPU.</li>
+  <li><strong>Structured-output libraries.</strong> <a href="https://github.com/dottxt-ai/outlines">Outlines</a>, <a href="https://github.com/567-labs/instructor">Instructor</a> and <a href="https://github.com/stanfordnlp/dspy">DSPy</a> put a typed interface on any LLM. You still get System 2 cost and latency, just with better manners.</li>
+</ol>
+<div class="table-scroll"><table>
+  <thead><tr><th>Project</th><th>Approach</th><th>Base model</th><th>Weights</th><th>Runs on</th><th>Calibrated?</th></tr></thead>
+  <tbody>
+    <tr><td><a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">Jev</a></td><td>Trained System One model (RLCD)</td><td>Undisclosed</td><td>Closed</td><td>TypeSafe API</td><td>Claimed, by design</td></tr>
+    <tr><td><a href="https://github.com/razorback16/openjev">OpenJev</a></td><td>Diffusion read-out, Jev wire API</td><td>DiffusionGemma 26B-A4B</td><td>Apache-2.0</td><td>24 GB NVIDIA GPU or 16 GB Mac</td><td>Model's own distribution, not RLCD-trained</td></tr>
+    <tr><td>openjev-sglang</td><td>Jev API on SGLang</td><td>Qwen3.6-35B-A3B</td><td>Open</td><td>B200-class GPU</td><td>Says it isn't</td></tr>
+    <tr><td>SemIf/openjev</td><td>Frozen logit reader</td><td>Qwen3.5-4B</td><td>MIT</td><td>RTX 3090-class GPU</td><td>Relative probabilities</td></tr>
+    <tr><td>mini-jev</td><td>Frozen logit reader</td><td>Qwen3-4B</td><td>MIT</td><td>~8.5 GB, Mac or CUDA</td><td>Says it isn't</td></tr>
+    <tr><td>kev</td><td>Fine-tuned, Jev schema</td><td>Qwen3.5 0.8B / 4B / 9B</td><td>Open</td><td>Self-hosted GPU</td><td>Unstated</td></tr>
+    <tr><td>Laya</td><td>Decision head on an encoder</td><td>ModernBERT-large (421M)</td><td>Apache-2.0</td><td>T4 (~35 ms) or CPU</td><td>ECE 0.081 after temperature fitting</td></tr>
+    <tr><td>NanoJev</td><td>Trained from scratch</td><td>Own, 0.6B</td><td>MIT</td><td>CUDA GPU</td><td>Unstated</td></tr>
+  </tbody>
+</table></div>
+<p class="small muted">The rows other than Jev and OpenJev are summarised from the community list at <a href="https://systemonemodels.org/examples/alternatives/">systemonemodels.org</a>. I haven't run them myself.</p>
+<p>My take: <strong>nobody outside TypeSafe knows how to do RLCD</strong>, because it hasn't been described in enough detail to copy. So every open variant gives you the <em>shape</em> of Jev (typed answers, parallel questions, a probability on everything). None of them gives you Jev's calibration guarantee for free. OpenJev is the most complete of the lot. It has the same wire API, a strong 26B model underneath, images, and an OpenAI-compatible chat endpoint from the same weights. Its confidence comes from a real distribution rather than a number the model makes up. Even so, if you're going to act on thresholds you should check its calibration on your own data. More on that under <a href="#caveats">caveats</a>.</p>
+
+<!-- ============================================================ -->
+<h2 id="local">Running it locally, and how big it is</h2>
+<p>This is where the open variants earn their keep. Jev is a hosted API, but OpenJev fits on a single workstation GPU or a decent Mac.</p>
+<p>The model is <a href="https://huggingface.co/nvidia/diffusiongemma-26B-A4B-it-NVFP4">DiffusionGemma 26B-A4B</a>, a diffusion version of Gemma 4 26B released by NVIDIA under Apache-2.0. It's a <strong>mixture of experts</strong> with <strong>25.2B parameters in total, of which 3.8B are active per token</strong>. It needs the memory of a 25B model but does the compute of a ~4B one, and that's why it's quick. It has a 262K-token context and takes text, images and video as input.</p>
+<div class="table-scroll"><table>
+  <thead><tr><th>Build</th><th>Where it runs</th><th class="num">Download / memory</th><th class="num">Latency (3 questions)</th></tr></thead>
+  <tbody>
+    <tr><td><a href="https://huggingface.co/nvidia/diffusiongemma-26B-A4B-it-NVFP4">NVFP4 (4-bit)</a></td><td>NVIDIA GPU via vLLM, in Docker</td><td class="num">~18 GB, 24 GB+ GPU</td><td class="num">94 ms p50 (RTX PRO 6000)</td></tr>
+    <tr><td><a href="https://huggingface.co/mlx-community/diffusiongemma-26B-A4B-it-4bit">MLX 4-bit</a></td><td>Apple silicon, in-process</td><td class="num">~16 GB free memory</td><td class="num">0.2–0.4 s (M3 Ultra), 0.39 s (M4 Max)</td></tr>
+    <tr><td>MLX 8-bit</td><td>Apple silicon</td><td class="num">≈ 27 GB*</td><td class="num">not measured</td></tr>
+    <tr><td>MLX bf16</td><td>Apple silicon, big memory</td><td class="num">≈ 50 GB*</td><td class="num">not measured</td></tr>
+  </tbody>
+</table></div>
+<p class="small muted">* These are my own estimates from the parameter count (25.2B × 1 or 2 bytes, plus overhead), not published figures. The other numbers come from the <a href="https://github.com/razorback16/openjev#run-your-own">OpenJev README</a>.</p>
+<p>On a Mac it really is two commands:</p>
+<pre><code>pip install -e '.[mlx]'
+OPENJEV_BACKEND=mlx python -m openjev     # http://127.0.0.1:8080</code></pre>
+<p>On an NVIDIA box, <code>docker compose up -d</code> pulls a prebuilt image with the patched vLLM. Either way the first start downloads the weights into <code>~/.cache/huggingface</code>, and after that nothing leaves the machine. For regulated data that matters as much as the price does.</p>
+<p>Throughput is the other half. On one RTX PRO 6000 using 38% of the card, OpenJev did <strong>57 decisions per second</strong> at 64 concurrent requests, with p95 latency around 1.1 s. The Mac backend handles one read at a time, about 4 req/s under load. That's fine for a developer loop or a small team, but not for serving production.</p>
+<p>If you don't want to run anything, <a href="https://codiv.ai">Codiv</a> hosts OpenJev with a free allowance of 100M System One tokens, and the API is the same.</p>
+
+<!-- ============================================================ -->
+<h2 id="cicd">The demo decisions vs the ones an enterprise actually makes</h2>
+<p>The out-of-the-box examples are deliberately simple. The OpenJev README triages a support message ("is it urgent, which team, how upset are they"). TypeSafe shows churn classification, a bot playing Doom and a Wikipedia-racing agent. They show the three primitives well, but they aren't what keeps a platform team up at night.</p>
+<p>Put an automation layer on top of CI and CD and the decisions look like this. Every one of them is currently either a brittle rule, an LLM call we wait several seconds for, or a person:</p>
+<div class="table-scroll"><table>
+  <thead><tr><th>Stage</th><th>Decision</th><th>Primitive</th><th>What goes in the state</th></tr></thead>
+  <tbody>
+    <tr><td>PR opened</td><td>How risky is this change?</td><td><code>score</code> low → critical</td><td>Diff summary, files touched, ownership</td></tr>
+    <tr><td>PR opened</td><td>Which team should review it?</td><td><code>choice</code></td><td>Paths, CODEOWNERS, description</td></tr>
+    <tr><td>PR opened</td><td>Is it a breaking API change? Does it touch PII or regulated scope?</td><td><code>noul</code> ×2</td><td>Diff of schemas and contracts</td></tr>
+    <tr><td>Dependency bot</td><td>Safe to auto-merge this bump?</td><td><code>noul</code></td><td>Changelog, semver jump, test results</td></tr>
+    <tr><td>Build failed</td><td>Flaky test, infrastructure, real regression or bad test?</td><td><code>choice</code></td><td>Failing test log, recent history</td></tr>
+    <tr><td>Security scan</td><td>Is this finding exploitable here, or a false positive?</td><td><code>noul</code> + <code>score</code></td><td>Finding, reachable code path</td></tr>
+    <tr><td>Change management</td><td>Standard, normal or emergency change (ITIL)?</td><td><code>choice</code></td><td>Change ticket, risk score, window</td></tr>
+    <tr><td>Deploy</td><td>Go / no-go on the canary?</td><td><code>noul</code> with a threshold</td><td>Canary metrics summary, error samples</td></tr>
+    <tr><td>Post-deploy</td><td>Roll back now?</td><td><code>noul</code></td><td>Alerts, SLO burn, log excerpts</td></tr>
+    <tr><td>Incident</td><td>Severity, and which runbook?</td><td><code>score</code> + <code>choice</code></td><td>Alert payload, affected services</td></tr>
+    <tr><td>Release</td><td>Feature, fix or chore for the release notes?</td><td><code>choice</code></td><td>Commit message, PR title</td></tr>
+  </tbody>
+</table></div>
+<p>The shape is the same as the demo: unstructured state, a handful of typed questions. What changes is the <strong>cost of being wrong</strong> and the <strong>volume</strong>. A misrouted support ticket is annoying. A wrongly approved deploy is an incident. That changes how you use the answer more than which model you use:</p>
+<ul>
+  <li><strong>Every question gets a threshold, and the threshold reflects the stakes.</strong> Auto-merge a docs-only change at P ≥ 0.9, but only auto-approve a deploy at P ≥ 0.99, and only when a <code>noul</code> says the canary is healthy.</li>
+  <li><strong>Low confidence sends the item to a human. It doesn't get a guess.</strong> The confidence is the thing that lets you automate the easy 80% safely and escalate the rest.</li>
+  <li><strong>The decisions are small enough to run on every event.</strong> At 100 ms and fractions of a penny each, you can gate every PR and every build, not a sampled few.</li>
+  <li><strong>Irreversible actions still need a person or a System 2 check</strong>: production data migrations, anything with a regulatory sign-off.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="bpa">What it means for business process automation</h2>
+<p>Business process automation has always hit the same wall. The process diagram is full of decision diamonds, and each diamond needs either a hard rule (which breaks on the first messy input) or a person (who becomes the bottleneck). LLMs made the fuzzy diamonds possible, but at a latency and price that pushed them into batch jobs and pilots.</p>
+<p>System One models change the economics of the diamond itself:</p>
+<ul>
+  <li><strong>More straight-through processing.</strong> Invoices, claims, onboarding checks, access requests and change approvals can be decided inline, with only the low-confidence cases sent to a person. The confidence score <em>is</em> the exception-handling policy.</li>
+  <li><strong>Rules engines with judgement.</strong> A typed answer drops straight into a BPMN gateway or a DMN decision table. "Is this supplier email a change of bank details?" becomes a <code>noul</code> you can branch on, not a regex nobody dares touch.</li>
+  <li><strong>An audit trail that's easier to reason about.</strong> Every decision is stored with the state, the question and the full distribution. "Why did it approve this?" has a numeric answer, and you can replay it after changing a threshold.</li>
+  <li><strong>Coverage, not sampling.</strong> When a check costs next to nothing you can run it on 100% of transactions. That matters most for compliance and fraud controls.</li>
+  <li><strong>Data can stay on premises.</strong> With OpenJev on your own GPU, customer and financial data never goes to a third party, and that's often the real blocker for BPA in regulated industries.</li>
+</ul>
+<p>The catch is governance. A process that decides in 100 ms can make a lot of bad decisions very quickly. You need evaluation sets per decision, calibration checks, drift monitoring and a named owner for each threshold. That's the same discipline we'd apply to any model in production, but people will be tempted to skip it because each call feels so cheap.</p>
+
+<!-- ============================================================ -->
+<h2 id="graphs">Where it fits in agent graphs</h2>
+<p>Most serious agent systems I see now are graphs: <a href="https://langchain-ai.github.io/langgraph/">LangGraph</a>, <a href="https://google.github.io/adk-docs/">Google's ADK</a> or a home-grown state machine. The <em>nodes</em> do the work and the <em>edges</em> decide what happens next. Today both jobs usually go to an LLM, which means every edge in the graph costs seconds.</p>
+<p>My view is simple: <strong>System 2 models belong in the nodes, and System 1 models belong on the edges.</strong> These are the places a System One read fits:</p>
+<ul>
+  <li><strong>Routers and conditional edges</strong>: "which specialist agent handles this?" as a <code>choice</code> over the agents.</li>
+  <li><strong>Supervisors</strong>: "is the task done, blocked or still in progress?" on every turn of a loop, cheaply enough to ask every time.</li>
+  <li><strong>Guards</strong>: before a tool call, "does this action match the user's intent? Is it destructive?" Jailbreak and prompt-injection checks on inputs.</li>
+  <li><strong>Verifiers</strong>: after an agent produces something, "does this fix address the failing test? Does the summary contain claims that aren't in the source?"</li>
+  <li><strong>Escalation</strong>: low confidence anywhere sends the item to a human node, not to a retry.</li>
+</ul>
+<figure>
+  <div class="diagram">
+    <svg viewBox="0 0 440 760" role="img" aria-labelledby="gTitle gDesc">
+      <title id="gTitle">A CI/CD agent graph with System 1 reads on the edges</title>
+      <desc id="gDesc">A pipeline event goes to a System 1 triage read. Confident low-risk changes are auto-approved, high-risk changes go to a System 2 review agent, and low-confidence items go to a human. The agent's output is checked by a System 1 verify read, which loops back if not done, then a System 1 deploy gate, canary rollout, and a System 1 rollback read.</desc>
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--text-3)"/>
+        </marker>
+      </defs>
+      <style>
+        .n-s1 { fill: var(--s1-wash); stroke: var(--s1); stroke-width: 2; }
+        .n-s2 { fill: var(--s2-wash); stroke: var(--s2); stroke-width: 2; }
+        .n-nt { fill: var(--neutral-node); stroke: var(--rule); stroke-width: 1.5; }
+        .t  { fill: var(--text); font: 600 14px Inter, system-ui, sans-serif; }
+        .ts { fill: var(--text-2); font: 12.5px Inter, system-ui, sans-serif; }
+        .el { fill: var(--text-3); font: 12px Inter, system-ui, sans-serif; }
+        .e  { stroke: var(--text-3); stroke-width: 1.5; fill: none; marker-end: url(#arr); }
+      </style>
+
+      <!-- event -->
+      <rect class="n-nt" x="90" y="10" width="260" height="50" rx="10"/>
+      <text class="t" x="220" y="32" text-anchor="middle">Pipeline event</text>
+      <text class="ts" x="220" y="50" text-anchor="middle">PR opened · build finished</text>
+      <path class="e" d="M220 60 V88"/>
+
+      <!-- triage -->
+      <rect class="n-s1" x="50" y="90" width="340" height="68" rx="10"/>
+      <text class="t" x="220" y="113" text-anchor="middle">System 1 · triage read (~100 ms)</text>
+      <text class="ts" x="220" y="132" text-anchor="middle">risk score · owning team</text>
+      <text class="ts" x="220" y="148" text-anchor="middle">breaking change? · touches PII?</text>
+
+      <!-- branches -->
+      <path class="e" d="M110 158 V226"/>
+      <path class="e" d="M220 158 V226"/>
+      <path class="e" d="M330 158 V226"/>
+      <text class="el" x="104" y="190" text-anchor="end">low risk,</text>
+      <text class="el" x="104" y="205" text-anchor="end">P ≥ 0.9</text>
+      <text class="el" x="226" y="198">high risk</text>
+      <text class="el" x="336" y="190">low</text>
+      <text class="el" x="336" y="205">confidence</text>
+
+      <rect class="n-nt" x="10" y="228" width="130" height="58" rx="10"/>
+      <text class="t" x="75" y="252" text-anchor="middle">Auto-approve</text>
+      <text class="ts" x="75" y="270" text-anchor="middle">log the distribution</text>
+
+      <rect class="n-s2" x="155" y="228" width="130" height="58" rx="10"/>
+      <text class="t" x="220" y="252" text-anchor="middle">System 2 agent</text>
+      <text class="ts" x="220" y="270" text-anchor="middle">review · explain · fix</text>
+
+      <rect class="n-nt" x="300" y="228" width="130" height="58" rx="10"/>
+      <text class="t" x="365" y="252" text-anchor="middle">Human</text>
+      <text class="ts" x="365" y="270" text-anchor="middle">reviewer queue</text>
+
+      <!-- verify -->
+      <path class="e" d="M220 286 V330"/>
+      <rect class="n-s1" x="90" y="332" width="260" height="64" rx="10"/>
+      <text class="t" x="220" y="356" text-anchor="middle">System 1 · verify read</text>
+      <text class="ts" x="220" y="374" text-anchor="middle">does the fix address the finding?</text>
+      <text class="ts" x="220" y="389" text-anchor="middle">is the agent done?</text>
+      <!-- loop back -->
+      <path class="e" d="M350 364 H392 V304 H250 V290"/>
+      <text class="el" x="398" y="336">no</text>
+
+      <!-- merge into deploy gate -->
+      <path class="e" d="M220 396 V440"/>
+      <text class="el" x="226" y="423">yes</text>
+      <path class="e" d="M75 286 V470 H88"/>
+
+      <rect class="n-s1" x="90" y="442" width="260" height="58" rx="10"/>
+      <text class="t" x="220" y="466" text-anchor="middle">System 1 · deploy gate</text>
+      <text class="ts" x="220" y="485" text-anchor="middle">go / no-go on canary, P ≥ 0.99</text>
+
+      <path class="e" d="M220 500 V544"/>
+      <rect class="n-nt" x="90" y="546" width="260" height="50" rx="10"/>
+      <text class="t" x="220" y="568" text-anchor="middle">Canary → progressive rollout</text>
+      <text class="ts" x="220" y="586" text-anchor="middle">metrics feed the next read</text>
+
+      <path class="e" d="M220 596 V640"/>
+      <rect class="n-s1" x="90" y="642" width="260" height="58" rx="10"/>
+      <text class="t" x="220" y="666" text-anchor="middle">System 1 · rollback read</text>
+      <text class="ts" x="220" y="685" text-anchor="middle">every minute, on live signals</text>
+      <path class="e" d="M350 671 H410 V720"/>
+      <text class="el" x="360" y="664">uncertain</text>
+      <rect class="n-nt" x="330" y="722" width="100" height="32" rx="8"/>
+      <text class="ts" x="380" y="743" text-anchor="middle">page on-call</text>
+    </svg>
+  </div>
+  <figcaption>A CI/CD graph. The <span class="tag s1">orange</span> reads are System 1 and cost milliseconds. The <span class="tag s2">blue</span> node is the one place a System 2 model spends real time. Confidence decides the path, and uncertainty goes to a person.</figcaption>
+</figure>
+<p>Two things follow from this. First, the graph gets <strong>faster and cheaper in proportion to how many edges it has</strong>, which is usually more than the number of nodes. Second, the control flow becomes <strong>inspectable</strong>. Each branch was taken because a probability crossed a threshold you set, not because an LLM happened to write the word "approve".</p>
+<p>OpenJev also serves an OpenAI-compatible <code>/v1/chat/completions</code> from the same weights, so a small graph can run both its System 1 edges and its lighter System 2 nodes on one local model. I'd still use a frontier model for the hard node, like the review-and-fix agent above.</p>
+
+<!-- ============================================================ -->
+<h2 id="cost">Cost</h2>
+<p>Here's a worked example that's easy to adjust. Take an automation layer making <strong>10,000 decisions a day</strong> across the pipeline stages above. Each decision sends about <strong>2,000 tokens of state</strong>: a diff summary, a log excerpt, some metadata. An LLM answering the same questions as JSON writes about <strong>300 tokens</strong>, and that's before any reasoning trace, which can easily be ten times that.</p>
+<p>Change the inputs and the chart updates. It uses a log scale, because the gap is several orders of magnitude.</p>
+
+<div class="calc" id="calc">
+  <div class="calc-inputs">
+    <div><label for="inDecisions">Decisions / day</label><input id="inDecisions" type="number" min="1" step="1000" value="10000"></div>
+    <div><label for="inTokens">Input tokens each</label><input id="inTokens" type="number" min="1" step="100" value="2000"></div>
+    <div><label for="inOut">LLM output tokens</label><input id="inOut" type="number" min="0" step="100" value="300"></div>
+    <div><label for="inGpu">GPU $/hour (assumed)</label><input id="inGpu" type="number" min="0" step="0.25" value="2"></div>
+  </div>
+  <div class="legend" aria-hidden="true"><span class="l-s2">System 2 (LLM API)</span><span class="l-s1">System 1</span></div>
+  <svg id="costChart" viewBox="0 0 700 330" role="img" aria-label="Monthly cost by option, log scale"></svg>
+  <p class="headline-num" id="headline"></p>
+</div>
+
+<div class="table-scroll"><table id="costTable">
+  <thead><tr><th>Option</th><th class="num">Price basis</th><th class="num">Per month</th><th class="num">Per 1,000 decisions</th></tr></thead>
+  <tbody></tbody>
+</table></div>
+<p class="small muted">Claude list prices per million tokens (input / output): Fable 5.1 $10 / $50, Opus 5 $5 / $25, Sonnet 5 $2 / $10, Haiku 4.5 $1 / $5, from <a href="https://www.anthropic.com/pricing#api">Anthropic's pricing</a>, excluding caching and batch discounts. Jev is $0.042 per million input tokens with free output, per <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">TypeSafe's launch post</a>. The self-hosted row is an <em>assumption</em>: a rented 48–96 GB GPU at the hourly rate you enter, running all month, with one extra GPU per ~50 decisions/second at 5× peak-to-average. Enter your own rate. Codiv's free tier and a Mac you already own are effectively $0 at this volume, so they're left off the chart.</p>
+
+<p>What the numbers say at the default volume:</p>
+<ul>
+  <li><strong>Hosted Jev is roughly 400× cheaper than a frontier LLM and 40× cheaper than the smallest Claude.</strong> Most of the saving is output tokens, because the answer is a single token per question and it isn't charged for. At about $25 a month, it's a rounding error, provided you're happy to send the data to TypeSafe.</li>
+  <li><strong>Self-hosting is a fixed cost, not a per-token one, and at low volume it isn't the cheap option.</strong> A rented GPU running all month costs more than Haiku at 10,000 decisions a day. Try 100,000 decisions a day and it beats every LLM on the list. Against hosted Jev it only breaks even at around half a million decisions a day, close to what one card can serve.</li>
+  <li><strong>So the case for OpenJev isn't price, it's control.</strong> The data never leaves your network, nobody can deprecate the model under you, and a Mac or a GPU you already own costs you only the electricity.</li>
+  <li><strong>Latency is a cost too.</strong> A pipeline that waits 5–30 s for an LLM on every gate spends that in runner minutes and developer time. At ~100 ms the gate stops being something anyone notices.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="caveats">Caveats</h2>
+<ul>
+  <li><strong>The answers are only as good as DiffusionGemma used this way.</strong> OpenJev's own README says so. Build a small labelled set for each decision and measure it before you trust it.</li>
+  <li><strong>Check calibration, don't assume it.</strong> Plot predicted P against observed accuracy for each question. If 0.9 doesn't mean right about 90% of the time, fit a temperature or move the threshold. Jev claims calibration from RLCD training. The open variants don't have RLCD.</li>
+  <li><strong>OpenJev relies on an unmerged vLLM pull request</strong> (<a href="https://github.com/vllm-project/vllm/pull/57250">#57250</a>) pinned to a fork. Expect some churn until it lands upstream.</li>
+  <li><strong>Prompt injection still applies.</strong> The state is untrusted input. A typed answer limits the blast radius, but a crafted log line can still push a <code>noul</code> the wrong way. Keep a human or a second check on anything irreversible.</li>
+  <li><strong>The vendor benchmarks are vendor benchmarks.</strong> The 40–200× latency and 444× cost figures are TypeSafe's, on TypeSafe's workflows.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="links">Further reading</h2>
+<ul>
+  <li><a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">Introducing System One Models and Jev</a> (TypeSafe)</li>
+  <li><a href="https://docs.typesafe.ai/">Jev documentation</a>: primitives, confidence, patterns</li>
+  <li><a href="https://evals.typesafe.ai/">TypeSafe workflow evals</a></li>
+  <li><a href="https://github.com/razorback16/openjev">OpenJev upstream</a> and <a href="https://github.com/SteFletcher/openjev">my fork</a></li>
+  <li><a href="https://github.com/vllm-project/vllm/pull/57250">vLLM PR #57250</a>: structured reads for diffusion models</li>
+  <li><a href="https://huggingface.co/nvidia/diffusiongemma-26B-A4B-it-NVFP4">DiffusionGemma 26B-A4B model card</a> and the <a href="https://huggingface.co/mlx-community/diffusiongemma-26B-A4B-it-4bit">MLX 4-bit build</a></li>
+  <li><a href="https://codiv.ai">Codiv</a>: hosted OpenJev with a free tier</li>
+  <li><a href="https://systemonemodels.org/examples/alternatives/">Jev alternatives</a>: a community list of open variants</li>
+  <li><a href="https://en.wikipedia.org/wiki/Thinking,_Fast_and_Slow">Thinking, Fast and Slow</a>, the origin of System 1 and System 2</li>
+  <li><a href="https://langchain-ai.github.io/langgraph/">LangGraph</a> and <a href="https://google.github.io/adk-docs/">Google ADK</a> for graph-orchestrated agents</li>
+  <li><a href="https://www.anthropic.com/pricing#api">Anthropic API pricing</a></li>
+</ul>
+
+<footer>
+  <p>Written by Stephen Fletcher. OpenJev is an independent project, not affiliated with or endorsed by TypeSafe AI, and neither am I. Figures are correct as of September 2026 to the best of my knowledge. Check the linked sources before you rely on them.</p>
+</footer>
+</div>
+
+<div class="tooltip" id="tip" role="status"></div>
+
+<script>
+(function () {
+  // theme toggle
+  var root = document.documentElement;
+  try { var saved = localStorage.getItem('theme'); if (saved) root.setAttribute('data-theme', saved); } catch (e) {}
+  document.getElementById('themeToggle').addEventListener('click', function () {
+    var dark = root.getAttribute('data-theme') === 'dark' ||
+      (!root.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+    var next = dark ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+  });
+
+  // cost model
+  var LLMS = [
+    { name: 'Claude Fable 5.1', short: 'Fable 5.1',  inP: 10, outP: 50 },
+    { name: 'Claude Opus 5',    short: 'Opus 5',     inP: 5,  outP: 25 },
+    { name: 'Claude Sonnet 5',  short: 'Sonnet 5',   inP: 2,  outP: 10 },
+    { name: 'Claude Haiku 4.5', short: 'Haiku 4.5',  inP: 1,  outP: 5 }
+  ];
+  var JEV_IN = 0.042;
+  var DAYS = 30;
+
+  function val(id) { var v = parseFloat(document.getElementById(id).value); return isFinite(v) && v >= 0 ? v : 0; }
+  function money(x) {
+    if (x >= 100) return '$' + Math.round(x).toLocaleString('en-GB');
+    if (x >= 1) return '$' + x.toFixed(2);
+    return '$' + x.toFixed(3);
+  }
+  function perThousand(x) {
+    x = x * 1000;
+    return x >= 1 ? '$' + x.toFixed(2) : '$' + x.toFixed(3);
+  }
+
+  function compute() {
+    var d = val('inDecisions'), tin = val('inTokens'), tout = val('inOut'), gpu = val('inGpu');
+    var n = d * DAYS, rows = [];
+    LLMS.forEach(function (m) {
+      rows.push({ name: m.name, short: m.short, kind: 's2', basis: '$' + m.inP + ' / $' + m.outP + ' per MTok',
+        month: n * (tin * m.inP + tout * m.outP) / 1e6 });
+    });
+    rows.push({ name: 'Jev (hosted)', short: 'Jev', kind: 's1', basis: '$0.042 per MTok in',
+      month: n * tin * JEV_IN / 1e6 });
+    var peakRps = d / 86400 * 5;
+    var gpus = Math.max(1, Math.ceil(peakRps / 50));
+    rows.push({ name: 'OpenJev, self-hosted GPU', short: 'OpenJev GPU', kind: 's1',
+      basis: gpus + ' GPU × $' + gpu.toFixed(2) + '/h',
+      month: gpus * gpu * 24 * DAYS });
+    rows.forEach(function (r) { r.per = n ? r.month / n : 0; });
+    return rows;
+  }
+
+  var svg = document.getElementById('costChart');
+  var tip = document.getElementById('tip');
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs, text) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function render() {
+    var rows = compute();
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    var cw = svg.getBoundingClientRect().width || 700;
+    var narrow = cw < 520;
+    var W = Math.round(Math.max(300, Math.min(700, cw))), left = narrow ? 118 : 190, right = narrow ? 62 : 80, top = 10, rowH = narrow ? 38 : 42, barH = 22;
+    var fs = narrow ? 12 : 13.5;
+    var H = top + rows.length * rowH + 30;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    var max = Math.max.apply(null, rows.map(function (r) { return r.month; }).concat([10]));
+    var lo = 1, hi = max * 1.8;
+    function x(v) { v = Math.max(v, lo); return left + (Math.log10(v) - Math.log10(lo)) / (Math.log10(hi) - Math.log10(lo)) * (W - left - right); }
+
+    // gridlines + ticks
+    for (var p = 0; Math.pow(10, p) <= hi; p++) {
+      var v = Math.pow(10, p), gx = x(v);
+      svg.appendChild(el('line', { x1: gx, x2: gx, y1: top, y2: H - 24, stroke: 'var(--rule)', 'stroke-width': 1 }));
+      var lab = v >= 1000 ? '$' + (v / 1000).toLocaleString('en-GB') + 'k' : '$' + v;
+      if (narrow && p % 2) continue;
+      svg.appendChild(el('text', { x: gx, y: H - 8, 'text-anchor': 'middle', 'font-size': 12, fill: 'var(--text-3)', style: 'font-variant-numeric: tabular-nums' }, lab));
+    }
+
+    rows.forEach(function (r, i) {
+      var y = top + i * rowH + (rowH - barH) / 2;
+      svg.appendChild(el('text', { x: left - 10, y: y + barH / 2 + 5, 'text-anchor': 'end', 'font-size': fs, fill: 'var(--text)' }, narrow ? r.short : r.name));
+      var x0 = left, x1 = Math.max(x(r.month), left + 3), w = x1 - x0, rad = Math.min(4, w / 2);
+      // bar: square at baseline, 4px rounded data end
+      var d = 'M' + x0 + ' ' + y + ' H' + (x1 - rad) + ' Q' + x1 + ' ' + y + ' ' + x1 + ' ' + (y + rad) +
+              ' V' + (y + barH - rad) + ' Q' + x1 + ' ' + (y + barH) + ' ' + (x1 - rad) + ' ' + (y + barH) + ' H' + x0 + ' Z';
+      svg.appendChild(el('path', { d: d, fill: r.kind === 's1' ? 'var(--s1)' : 'var(--s2)' }));
+      svg.appendChild(el('text', { x: x1 + 8, y: y + barH / 2 + 5, 'font-size': fs - 0.5, 'font-weight': 600, fill: 'var(--text)', style: 'font-variant-numeric: tabular-nums' }, money(r.month)));
+      // hit target: full row
+      var hit = el('rect', { x: 0, y: top + i * rowH, width: W, height: rowH, fill: 'transparent' });
+      hit.addEventListener('mousemove', function (ev) {
+        tip.innerHTML = '<strong>' + r.name + '</strong><br>' + money(r.month) + ' / month<br>' + perThousand(r.per) + ' per 1,000 decisions<br><span style="opacity:.75">' + r.basis + '</span>';
+        tip.style.opacity = 1;
+        var tx = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
+        tip.style.left = tx + 'px'; tip.style.top = (ev.clientY + 14) + 'px';
+      });
+      hit.addEventListener('mouseleave', function () { tip.style.opacity = 0; });
+      svg.appendChild(hit);
+    });
+
+    // table view
+    var tb = document.querySelector('#costTable tbody');
+    tb.innerHTML = '';
+    rows.forEach(function (r) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td><span class="tag ' + r.kind + '">' + (r.kind === 's1' ? 'S1' : 'S2') + '</span> ' + r.name + '</td>' +
+        '<td class="num">' + r.basis + '</td><td class="num">' + money(r.month) + '</td><td class="num">' + perThousand(r.per) + '</td>';
+      tb.appendChild(tr);
+    });
+
+    var frontier = rows[0].month, jev = rows[4].month, gpu = rows[5].month;
+    var h = '';
+    if (jev > 0) h += 'At these inputs, hosted Jev is <strong>' + Math.round(frontier / jev).toLocaleString('en-GB') + '×</strong> cheaper than ' + rows[0].name + ' and <strong>' + Math.round(rows[3].month / jev).toLocaleString('en-GB') + '×</strong> cheaper than ' + rows[3].name + '. ';
+    var cheaper = rows.slice(0, 4).filter(function (r) { return r.month > gpu; }).map(function (r) { return r.name.replace('Claude ', ''); });
+    h += cheaper.length
+      ? 'A self-hosted OpenJev GPU undercuts ' + (cheaper.length > 1 ? cheaper.slice(0, -1).join(', ') + ' and ' + cheaper[cheaper.length - 1] : cheaper[0]) + '.'
+      : 'At this volume a rented GPU costs more than every LLM listed. Self-hosting pays off at higher volume, or on hardware you already own.';
+    document.getElementById('headline').innerHTML = h;
+  }
+
+  ['inDecisions', 'inTokens', 'inOut', 'inGpu'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', render);
+  });
+  render();
+  var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(render, 100); });
+})();
+</script>
+</body>
+</html>
