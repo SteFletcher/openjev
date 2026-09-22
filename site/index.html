@@ -161,7 +161,7 @@ footer { margin: 72px 0 0; padding: 24px 0 48px; border-top: 1px solid var(--rul
     <li><a href="#s1s2">System 1 vs System 2</a></li>
     <li><a href="#vs-llm">Jev vs standard LLMs</a></li>
     <li><a href="#open">Jev vs the open variants</a></li>
-    <li><a href="#local">Running it locally, and how big it is</a></li>
+    <li><a href="#local">Running it locally, and how big it is</a> (<a href="#min-spec">minimum spec</a>)</li>
     <li><a href="#cicd">Demo decisions vs enterprise CI/CD decisions</a></li>
     <li><a href="#bpa">What it means for business process automation</a></li>
     <li><a href="#graphs">Where it fits in agent graphs</a></li>
@@ -261,6 +261,26 @@ footer { margin: 72px 0 0; padding: 24px 0 48px; border-top: 1px solid var(--rul
 <pre><code>pip install -e '.[mlx]'
 OPENJEV_BACKEND=mlx python -m openjev     # http://127.0.0.1:8080</code></pre>
 <p>On an NVIDIA box, <code>docker compose up -d</code> pulls a prebuilt image with the patched vLLM. Either way the first start downloads the weights into <code>~/.cache/huggingface</code>, and after that nothing leaves the machine. For regulated data that matters as much as the price does.</p>
+<h3 id="min-spec">Minimum spec for my demo</h3>
+<p>My own demo is a small, dependency-free Python project. It has four scripts, one for each primitive plus a triage pipeline that combines all three, and a script that starts OpenJev on a Mac with the 4-bit MLX weights. This is what you need to run it against the real model:</p>
+<div class="table-scroll"><table>
+  <thead><tr><th></th><th>Minimum</th><th>Comfortable</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Machine</strong></td><td>Apple silicon Mac (any M-series)</td><td>M3 Max / M4 Max or better, which gives 0.2–0.4 s per request</td></tr>
+    <tr><td><strong>Unified memory</strong></td><td><strong>32 GB</strong></td><td>48 GB or more, so the rest of your tools stay open</td></tr>
+    <tr><td><strong>macOS</strong></td><td>14 Sonoma, the oldest MLX supports</td><td>Current release</td></tr>
+    <tr><td><strong>Free disk</strong></td><td>~20 GB: 16.6 GB of weights plus ~0.6 GB of Python environment</td><td>40 GB+ if you want to try the 8-bit build</td></tr>
+    <tr><td><strong>Software</strong></td><td>git, <a href="https://docs.astral.sh/uv/">uv</a> (it fetches Python 3.12)</td><td></td></tr>
+    <tr><td><strong>Network</strong></td><td>One 16.6 GB download on first run, then fully offline</td><td></td></tr>
+  </tbody>
+</table></div>
+<p>Why 32 GB and not 16 or 24? The 4-bit weights alone are 16.6 GB, and they have to sit in the part of unified memory the GPU is allowed to use. By default macOS gives the GPU roughly two-thirds to three-quarters of RAM. That's about 16 GB on a 24 GB machine, which is just short, and a 16 GB Mac has no chance at all. On 24 GB you can raise the limit with <code>sudo sysctl iogpu.wired_limit_mb=…</code>, but you'll be running with nothing to spare. Treat 32 GB as the real floor.</p>
+<p>There are two other ways to run it:</p>
+<ul>
+  <li><strong>NVIDIA instead of a Mac.</strong> A 24 GB GPU (RTX 3090/4090 class or better) with Docker and the NVIDIA container toolkit runs the same server. Point the demo at it with <code>OPENJEV_BASE_URL</code>.</li>
+  <li><strong>No model at all.</strong> Every example takes <code>--mock</code>, which starts an offline mock of the API with the real request and response shapes. It answers by keyword overlap, so it's good for learning the API, not for judging quality. It runs on any machine with Python 3.10 or later.</li>
+</ul>
+
 <p>Throughput is the other half. On one RTX PRO 6000 using 38% of the card, OpenJev did <strong>57 decisions per second</strong> at 64 concurrent requests, with p95 latency around 1.1 s. The Mac backend handles one read at a time, about 4 req/s under load. That's fine for a developer loop or a small team, but not for serving production.</p>
 <p>If you don't want to run anything, <a href="https://codiv.ai">Codiv</a> hosts OpenJev with a free allowance of 100M System One tokens, and the API is the same.</p>
 
